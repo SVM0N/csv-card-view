@@ -1985,6 +1985,31 @@ td .csv-select-chip {
   border-style: dashed;
 }
 
+/* ─── Mobile Scrollable Table ─────────────────────────────────────────────── */
+
+.csv-mobile-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -12px;
+  padding: 0 12px;
+}
+
+.csv-mobile-table table {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.csv-mobile-table th,
+.csv-mobile-table td {
+  padding: 4px 8px !important;
+  font-size: 12px;
+}
+
+.csv-mobile-table th {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
 /* ─── Mobile Add Form (csv-add code block) ────────────────────────────────── */
 
 .csv-add-error {
@@ -2131,4 +2156,20 @@ td .csv-select-chip {
 
 .csv-add-submit:hover {
   background: var(--csv-accent-hover);
+}
+
+.csv-refresh-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.csv-refresh-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }

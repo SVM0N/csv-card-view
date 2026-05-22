@@ -46429,7 +46429,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
       this.renderTable(content);
   }
   renderToolbar(root) {
-    var _a, _b;
+    var _a, _b, _c;
     const bar = root.createDiv({ cls: "csv-toolbar" });
     bar.createDiv({ cls: "csv-toolbar-title", text: (_b = (_a = this.file) == null ? void 0 : _a.basename) != null ? _b : "" });
     const ctrl = bar.createDiv({ cls: "csv-toolbar-controls" });
@@ -46470,6 +46470,21 @@ var XLSXCardView = class extends import_obsidian.FileView {
         this.renderView(true);
       });
     }
+    if (this.mode === "table" && this.hasDateColumn()) {
+      const sortNewest = (_c = this.fileCfg.sortNewestFirst) != null ? _c : true;
+      const sortBtn = ctrl.createEl("button", {
+        cls: `csv-cfg-btn ${sortNewest ? "active" : ""}`,
+        text: sortNewest ? "\u2193 Newest" : "\u2191 Oldest",
+        title: "Toggle sort order"
+      });
+      sortBtn.addEventListener("click", () => {
+        var _a2;
+        const cfg = this.fileCfg;
+        cfg.sortNewestFirst = !((_a2 = cfg.sortNewestFirst) != null ? _a2 : true);
+        this.saveFileCfg(cfg);
+        this.renderView();
+      });
+    }
     const cfgBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "\u2699 Columns", title: "Configure columns for this file" });
     cfgBtn.addEventListener("click", () => {
       var _a2, _b2;
@@ -46491,16 +46506,30 @@ var XLSXCardView = class extends import_obsidian.FileView {
   }
   // ── Search filtering ─────────────────────────────────────────────────────────
   getFilteredRows() {
-    if (!this.searchQuery.trim())
-      return this.rows;
-    const query = this.searchQuery.toLowerCase().trim();
-    return this.rows.filter((row) => {
-      return this.headers.some((h) => {
-        var _a;
-        const val = (_a = row[h]) != null ? _a : "";
-        return val.toLowerCase().includes(query);
+    var _a;
+    let result = this.rows;
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase().trim();
+      result = result.filter((row) => {
+        return this.headers.some((h) => {
+          var _a2;
+          const val = (_a2 = row[h]) != null ? _a2 : "";
+          return val.toLowerCase().includes(query);
+        });
       });
-    });
+    }
+    const dateCol = this.getDateCol();
+    if (this.mode === "table" && dateCol) {
+      const sortNewest = (_a = this.fileCfg.sortNewestFirst) != null ? _a : true;
+      result = [...result].sort((a, b) => {
+        var _a2, _b;
+        const dateA = (_a2 = a[dateCol]) != null ? _a2 : "";
+        const dateB = (_b = b[dateCol]) != null ? _b : "";
+        const cmp = dateA.localeCompare(dateB);
+        return sortNewest ? -cmp : cmp;
+      });
+    }
+    return result;
   }
   getDateCol() {
     if (this.headers.length === 0)
@@ -47013,12 +47042,10 @@ var XLSXCardView = class extends import_obsidian.FileView {
     }
   }
   generateHabitMobileDashboard(habitCols, dateCol, csvPath) {
-    var _a, _b, _c;
+    var _a, _b;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
     const labels = habitCols.map((h) => titleCase(h));
-    return `# ${(_c = this.file) == null ? void 0 : _c.basename} - Mobile
-
-> Requires **Dataview** plugin with DataviewJS enabled.
+    return `> Requires **Dataview** plugin with DataviewJS enabled.
 
 ## Quick Add
 
@@ -47027,6 +47054,9 @@ file: ${fileName}
 \`\`\`
 
 ## Recent Entries
+
+\`\`\`csv-refresh
+\`\`\`
 
 \`\`\`dataviewjs
 const csvData = await dv.io.csv("${csvPath}");
@@ -47042,11 +47072,22 @@ if (!csvData || !csvData.length) {
   container.style.overflowX = "auto";
   container.style.fontSize = "12px";
 
+  // Style table headers to prevent word breaks
+  setTimeout(() => {
+    container.querySelectorAll("th").forEach(th => {
+      th.style.whiteSpace = "nowrap";
+      th.style.padding = "4px 8px";
+    });
+    container.querySelectorAll("td").forEach(td => {
+      td.style.padding = "4px 8px";
+      td.style.textAlign = "center";
+    });
+  }, 50);
+
   dv.table(
     ["Date", ...labels],
     recent.map(r => {
       const dateVal = r["${dateCol}"];
-      // Handle Luxon DateTime, Date object, or string
       let shortDate = "";
       if (dateVal?.toFormat) {
         shortDate = dateVal.toFormat("MM-dd");
@@ -47505,6 +47546,21 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
       await this.renderAddEntryForm(source.trim(), el, ctx);
     });
+    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el) => {
+      const btn = el.createEl("button", {
+        text: "\u{1F504} Refresh",
+        cls: "csv-refresh-btn"
+      });
+      btn.addEventListener("click", () => {
+        const leaf = this.app.workspace.activeLeaf;
+        if (leaf == null ? void 0 : leaf.rebuildView) {
+          leaf.rebuildView();
+        } else {
+          this.app.commands.executeCommandById("markdown:toggle-preview");
+          setTimeout(() => this.app.commands.executeCommandById("markdown:toggle-preview"), 100);
+        }
+      });
+    });
   }
   async renderAddEntryForm(source, el, ctx) {
     var _a, _b, _c;
@@ -47758,6 +47814,12 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           }
         });
         form.querySelectorAll(".csv-add-toggle").forEach((t) => t.classList.remove("checked"));
+        setTimeout(() => {
+          const leaf = this.app.workspace.activeLeaf;
+          if (leaf == null ? void 0 : leaf.rebuildView) {
+            leaf.rebuildView();
+          }
+        }, 300);
       } catch (e) {
         new import_obsidian.Notice(`Error saving: ${e}`);
       }

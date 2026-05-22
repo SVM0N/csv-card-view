@@ -1535,12 +1535,9 @@ export class XLSXCardView extends FileView {
 
   private generateHabitMobileDashboard(habitCols: string[], dateCol: string, csvPath: string): string {
     const fileName = this.file?.name ?? "";
-    // Use full column names - table is scrollable
     const labels = habitCols.map(h => titleCase(h));
 
-    return `# ${this.file?.basename} - Mobile
-
-> Requires **Dataview** plugin with DataviewJS enabled.
+    return `> Requires **Dataview** plugin with DataviewJS enabled.
 
 ## Quick Add
 
@@ -1549,6 +1546,9 @@ file: ${fileName}
 \`\`\`
 
 ## Recent Entries
+
+\`\`\`csv-refresh
+\`\`\`
 
 \`\`\`dataviewjs
 const csvData = await dv.io.csv("${csvPath}");
@@ -1564,11 +1564,22 @@ if (!csvData || !csvData.length) {
   container.style.overflowX = "auto";
   container.style.fontSize = "12px";
 
+  // Style table headers to prevent word breaks
+  setTimeout(() => {
+    container.querySelectorAll("th").forEach(th => {
+      th.style.whiteSpace = "nowrap";
+      th.style.padding = "4px 8px";
+    });
+    container.querySelectorAll("td").forEach(td => {
+      td.style.padding = "4px 8px";
+      td.style.textAlign = "center";
+    });
+  }, 50);
+
   dv.table(
     ["Date", ...labels],
     recent.map(r => {
       const dateVal = r["${dateCol}"];
-      // Handle Luxon DateTime, Date object, or string
       let shortDate = "";
       if (dateVal?.toFormat) {
         shortDate = dateVal.toFormat("MM-dd");
@@ -1969,6 +1980,25 @@ export default class CardViewPlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
       await this.renderAddEntryForm(source.trim(), el, ctx);
     });
+
+    // Register csv-refresh code block for manual refresh button
+    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el) => {
+      const btn = el.createEl("button", {
+        text: "🔄 Refresh",
+        cls: "csv-refresh-btn"
+      });
+      btn.addEventListener("click", () => {
+        // Force re-render the current note to refresh Dataview
+        const leaf = this.app.workspace.activeLeaf;
+        if (leaf?.rebuildView) {
+          leaf.rebuildView();
+        } else {
+          // Fallback: toggle edit mode to force refresh
+          this.app.commands.executeCommandById("markdown:toggle-preview");
+          setTimeout(() => this.app.commands.executeCommandById("markdown:toggle-preview"), 100);
+        }
+      });
+    });
   }
 
   async renderAddEntryForm(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> {
@@ -2242,6 +2272,14 @@ export default class CardViewPlugin extends Plugin {
         });
         // Update toggle visual state
         form.querySelectorAll(".csv-add-toggle").forEach(t => t.classList.remove("checked"));
+
+        // Auto-refresh the page to update Dataview results
+        setTimeout(() => {
+          const leaf = this.app.workspace.activeLeaf;
+          if (leaf?.rebuildView) {
+            leaf.rebuildView();
+          }
+        }, 300);
       } catch (e) {
         new Notice(`Error saving: ${e}`);
       }
