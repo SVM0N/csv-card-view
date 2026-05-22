@@ -47729,15 +47729,41 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
         new import_obsidian.Notice("Please fill at least one field");
         return;
       }
+      let currentRows = [];
+      try {
+        if (isXlsx) {
+          const buf = await this.app.vault.readBinary(file);
+          const wb = readSync(buf, { type: "array" });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const raw = utils.sheet_to_json(ws, { header: 1, defval: "" });
+          if (raw.length) {
+            currentRows = raw.slice(1).map((r) => {
+              const row = {};
+              headers.forEach((h, i) => {
+                var _a3;
+                row[h] = String((_a3 = r[i]) != null ? _a3 : "");
+              });
+              return row;
+            });
+          }
+        } else {
+          const text = await this.app.vault.read(file);
+          const result = import_papaparse.default.parse(text, { header: true, skipEmptyLines: true });
+          currentRows = result.data;
+        }
+      } catch (e) {
+        new import_obsidian.Notice(`Error reading file: ${e}`);
+        return;
+      }
       let isUpdate = false;
       let existingRowIdx = -1;
       if (dateCols.length > 0) {
         const dateCol = dateCols[0];
         const dateVal = newRow[dateCol];
-        existingRowIdx = rows.findIndex((r) => r[dateCol] === dateVal);
+        existingRowIdx = currentRows.findIndex((r) => r[dateCol] === dateVal);
         if (existingRowIdx >= 0) {
           isUpdate = true;
-          const existingRow = rows[existingRowIdx];
+          const existingRow = currentRows[existingRowIdx];
           headers.forEach((h) => {
             var _a3;
             if (binaryCols.includes(h)) {
@@ -47747,14 +47773,15 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
             }
           });
         } else {
-          rows.push(newRow);
+          currentRows.push(newRow);
         }
       } else {
-        rows.push(newRow);
+        currentRows.push(newRow);
       }
+      const rows2 = currentRows;
       try {
         if (isXlsx) {
-          const ws = utils.json_to_sheet(rows.map((r) => {
+          const ws = utils.json_to_sheet(rows2.map((r) => {
             const obj = {};
             headers.forEach((h) => {
               var _a3;
@@ -47775,7 +47802,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
             }
           } catch (e) {
           }
-          const csvContent = import_papaparse.default.unparse(rows, { columns: headers });
+          const csvContent = import_papaparse.default.unparse(rows2, { columns: headers });
           try {
             const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
             if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
@@ -47789,7 +47816,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
               await this.app.vault.modify(f, csvContent);
           }
         } else {
-          const csv = import_papaparse.default.unparse(rows, { columns: headers });
+          const csv = import_papaparse.default.unparse(rows2, { columns: headers });
           await this.app.vault.modify(file, csv);
         }
         new import_obsidian.Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);

@@ -2177,17 +2177,42 @@ export default class CardViewPlugin extends Plugin {
         return;
       }
 
+      // Re-read file to get latest data (avoids stale data issues)
+      let currentRows: CSVRow[] = [];
+      try {
+        if (isXlsx) {
+          const buf = await this.app.vault.readBinary(file);
+          const wb = XLSX.read(buf, { type: "array" });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+          if (raw.length) {
+            currentRows = raw.slice(1).map(r => {
+              const row: CSVRow = {};
+              headers.forEach((h, i) => { row[h] = String((r as string[])[i] ?? ""); });
+              return row;
+            });
+          }
+        } else {
+          const text = await this.app.vault.read(file);
+          const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+          currentRows = result.data as CSVRow[];
+        }
+      } catch (e) {
+        new Notice(`Error reading file: ${e}`);
+        return;
+      }
+
       // Check for duplicate date entry (for habit trackers)
       let isUpdate = false;
       let existingRowIdx = -1;
       if (dateCols.length > 0) {
         const dateCol = dateCols[0];
         const dateVal = newRow[dateCol];
-        existingRowIdx = rows.findIndex(r => r[dateCol] === dateVal);
+        existingRowIdx = currentRows.findIndex(r => r[dateCol] === dateVal);
         if (existingRowIdx >= 0) {
           // Update existing row - merge values (only update non-empty new values)
           isUpdate = true;
-          const existingRow = rows[existingRowIdx];
+          const existingRow = currentRows[existingRowIdx];
           headers.forEach(h => {
             if (binaryCols.includes(h)) {
               // For binary cols, always use the new toggle state
@@ -2198,11 +2223,14 @@ export default class CardViewPlugin extends Plugin {
             }
           });
         } else {
-          rows.push(newRow);
+          currentRows.push(newRow);
         }
       } else {
-        rows.push(newRow);
+        currentRows.push(newRow);
       }
+
+      // Use currentRows instead of stale rows
+      const rows = currentRows;
 
       try {
         // Save to main file (XLSX or CSV)

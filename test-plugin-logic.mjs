@@ -581,6 +581,113 @@ test("toDateString: slice for MM-DD works after conversion", () => {
   assertEqual(toDateString(luxonLike).slice(5), "12-31");
 });
 
+console.log("\n=== Duplicate Entry Detection ===\n");
+
+// Simulates the duplicate detection logic from csv-add form
+function findExistingRowByDate(rows, dateCol, dateVal) {
+  return rows.findIndex(r => r[dateCol] === dateVal);
+}
+
+function mergeHabitEntry(existingRow, newRow, headers, binaryCols) {
+  headers.forEach(h => {
+    if (binaryCols.includes(h)) {
+      // For binary cols, always use the new toggle state
+      existingRow[h] = newRow[h];
+    } else if ((newRow[h] ?? "").trim()) {
+      // For other cols, only update if new value is non-empty
+      existingRow[h] = newRow[h];
+    }
+  });
+  return existingRow;
+}
+
+test("findExistingRowByDate: finds matching date", () => {
+  const rows = [
+    { date: "2025-05-20", vitamins: "1" },
+    { date: "2025-05-21", vitamins: "0" },
+    { date: "2025-05-22", vitamins: "1" }
+  ];
+  assertEqual(findExistingRowByDate(rows, "date", "2025-05-21"), 1);
+  assertEqual(findExistingRowByDate(rows, "date", "2025-05-22"), 2);
+});
+
+test("findExistingRowByDate: returns -1 for no match", () => {
+  const rows = [
+    { date: "2025-05-20", vitamins: "1" },
+    { date: "2025-05-21", vitamins: "0" }
+  ];
+  assertEqual(findExistingRowByDate(rows, "date", "2025-05-25"), -1);
+  assertEqual(findExistingRowByDate(rows, "date", ""), -1);
+});
+
+test("mergeHabitEntry: updates binary cols with new values", () => {
+  const existing = { date: "2025-05-22", vitamins: "0", gym: "0", notes: "old note" };
+  const newRow = { date: "2025-05-22", vitamins: "1", gym: "1", notes: "" };
+  const headers = ["date", "vitamins", "gym", "notes"];
+  const binaryCols = ["vitamins", "gym"];
+
+  const result = mergeHabitEntry(existing, newRow, headers, binaryCols);
+  assertEqual(result.vitamins, "1");
+  assertEqual(result.gym, "1");
+  assertEqual(result.notes, "old note"); // Preserved because new value is empty
+});
+
+test("mergeHabitEntry: preserves existing non-empty values when new is empty", () => {
+  const existing = { date: "2025-05-22", vitamins: "1", notes: "important note" };
+  const newRow = { date: "2025-05-22", vitamins: "0", notes: "" };
+  const headers = ["date", "vitamins", "notes"];
+  const binaryCols = ["vitamins"];
+
+  const result = mergeHabitEntry(existing, newRow, headers, binaryCols);
+  assertEqual(result.vitamins, "0"); // Binary col updated
+  assertEqual(result.notes, "important note"); // Non-binary preserved
+});
+
+test("mergeHabitEntry: updates non-binary with new non-empty value", () => {
+  const existing = { date: "2025-05-22", notes: "old" };
+  const newRow = { date: "2025-05-22", notes: "new note" };
+  const headers = ["date", "notes"];
+  const binaryCols = [];
+
+  const result = mergeHabitEntry(existing, newRow, headers, binaryCols);
+  assertEqual(result.notes, "new note");
+});
+
+console.log("\n=== Sort Order ===\n");
+
+function sortByDate(rows, dateCol, newestFirst) {
+  return [...rows].sort((a, b) => {
+    const dateA = a[dateCol] ?? "";
+    const dateB = b[dateCol] ?? "";
+    const cmp = dateA.localeCompare(dateB);
+    return newestFirst ? -cmp : cmp;
+  });
+}
+
+test("sortByDate: newest first", () => {
+  const rows = [
+    { date: "2025-05-20" },
+    { date: "2025-05-22" },
+    { date: "2025-05-21" }
+  ];
+  const sorted = sortByDate(rows, "date", true);
+  assertEqual(sorted[0].date, "2025-05-22");
+  assertEqual(sorted[1].date, "2025-05-21");
+  assertEqual(sorted[2].date, "2025-05-20");
+});
+
+test("sortByDate: oldest first", () => {
+  const rows = [
+    { date: "2025-05-22" },
+    { date: "2025-05-20" },
+    { date: "2025-05-21" }
+  ];
+  const sorted = sortByDate(rows, "date", false);
+  assertEqual(sorted[0].date, "2025-05-20");
+  assertEqual(sorted[1].date, "2025-05-21");
+  assertEqual(sorted[2].date, "2025-05-22");
+});
+
 // ============================================================================
 // Summary
 // ============================================================================
