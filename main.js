@@ -46112,24 +46112,33 @@ var XLSXCardView = class extends import_obsidian.FileView {
     this.saveTimer = window.setTimeout(() => this.doSave(), 600);
   }
   async doSave() {
+    var _a, _b;
     if (!this.file)
       return;
     try {
       if (this.isXlsx) {
         const wb = utils.book_new();
         const data = [this.headers, ...this.rows.map((r) => this.headers.map((h) => {
-          var _a;
-          return (_a = r[h]) != null ? _a : "";
+          var _a2;
+          return (_a2 = r[h]) != null ? _a2 : "";
         }))];
         const ws = utils.aoa_to_sheet(data);
         utils.book_append_sheet(wb, ws, "Sheet1");
         const buf = writeSync(wb, { type: "array", bookType: "xlsx" });
         await this.app.vault.modifyBinary(this.file, buf);
+        const csvFolder = (_b = (_a = this.file.parent) == null ? void 0 : _a.path) != null ? _b : "";
+        const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+        const csvPath = `${helperFolder}/${this.file.basename}.csv`;
+        const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+        if (existingCsv instanceof import_obsidian.TFile) {
+          const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
+          await this.app.vault.modify(existingCsv, csvContent);
+        }
       } else {
         const esc = (v) => v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
         const csv = [this.headers.map(esc).join(","), ...this.rows.map((r) => this.headers.map((h) => {
-          var _a;
-          return esc((_a = r[h]) != null ? _a : "");
+          var _a2;
+          return esc((_a2 = r[h]) != null ? _a2 : "");
         }).join(","))].join("\n");
         await this.app.vault.modify(this.file, csv);
       }

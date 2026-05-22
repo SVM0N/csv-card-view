@@ -573,6 +573,16 @@ export class XLSXCardView extends FileView {
         XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
         const buf: ArrayBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
         await this.app.vault.modifyBinary(this.file, buf);
+
+        // Also sync to CSV helper file if it exists (for Dataview mobile dashboard)
+        const csvFolder = this.file.parent?.path ?? "";
+        const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+        const csvPath = `${helperFolder}/${this.file.basename}.csv`;
+        const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+        if (existingCsv instanceof TFile) {
+          const csvContent = Papa.unparse(this.rows, { columns: this.headers });
+          await this.app.vault.modify(existingCsv, csvContent);
+        }
       } else {
         const esc = (v: string) => (v.includes(",") || v.includes('"') || v.includes("\n")) ? `"${v.replace(/"/g,'""')}"` : v;
         const csv = [this.headers.map(esc).join(","), ...this.rows.map(r => this.headers.map(h => esc(r[h]??"")).join(","))].join("\n");
