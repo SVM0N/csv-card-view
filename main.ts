@@ -14,6 +14,7 @@ import {
   normalizePath,
 } from "obsidian";
 import * as XLSX from "xlsx";
+import Papa from "papaparse";
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip } from "chart.js";
 
 // Register Chart.js components
@@ -29,6 +30,7 @@ interface FileConfig {
   categoryColumn?: string;
   notesColumn?: string;
   statusColumn?: string;
+  habitColumns?: string[];  // Columns to track as habits in dashboard view
   defaultMode?: ViewMode;
 }
 
@@ -56,6 +58,38 @@ const DEFAULT_SETTINGS: CardViewSettings = {
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|#^[\]]/g,"").replace(/\s+/g," ").trim().slice(0,100);
+}
+
+function titleCase(str: string): string {
+  return str.split(/[\s_-]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
+
+// Convert rating text to stars display
+function formatRating(value: string, columnName: string): string {
+  const col = columnName.toLowerCase();
+  if (!["rating", "score", "score /5"].includes(col)) return value;
+
+  const val = value.toLowerCase().trim();
+  const ratingMap: Record<string, string> = {
+    // Text ratings → stars
+    "excellent": "★★★★★",
+    "great": "★★★★★",
+    "good": "★★★★☆",
+    "fair": "★★★☆☆",
+    "poor": "★★☆☆☆",
+    "bad": "★☆☆☆☆",
+    // Numeric ratings
+    "5": "★★★★★",
+    "4": "★★★★☆",
+    "3": "★★★☆☆",
+    "2": "★★☆☆☆",
+    "1": "★☆☆☆☆",
+    "0": "☆☆☆☆☆",
+    // Unrated
+    "unrated": "—",
+    "": "—",
+  };
+  return ratingMap[val] ?? value;
 }
 
 // ─── Select Picker ────────────────────────────────────────────────────────────
@@ -362,13 +396,15 @@ class FileConfigModal extends Modal {
   headers: string[];
   filePath: string;
   current: FileConfig;
+  autoDetectedHabits: string[];
   onSave: (cfg: FileConfig) => void;
 
-  constructor(app: App, headers: string[], filePath: string, current: FileConfig, onSave: (cfg: FileConfig) => void) {
+  constructor(app: App, headers: string[], filePath: string, current: FileConfig, autoDetectedHabits: string[], onSave: (cfg: FileConfig) => void) {
     super(app);
     this.headers = headers;
     this.filePath = filePath;
-    this.current = { ...current };
+    this.current = { ...current, habitColumns: current.habitColumns ? [...current.habitColumns] : undefined };
+    this.autoDetectedHabits = autoDetectedHabits;
     this.onSave = onSave;
   }
 
@@ -397,6 +433,38 @@ class FileConfigModal extends Modal {
     makeDropdown("Category column (kanban grouping)", this.current.categoryColumn, v => { this.current.categoryColumn = v; });
     makeDropdown("Status column (row subgroups)", this.current.statusColumn, v => { this.current.statusColumn = v; });
     makeDropdown("Notes column", this.current.notesColumn, v => { this.current.notesColumn = v; });
+
+    // Habit columns (multi-select with checkboxes)
+    const habitRow = form.createDiv({ cls: "csv-modal-row" });
+    habitRow.createEl("label", { text: "Habit columns (dashboard)", cls: "csv-modal-label" });
+    const habitDesc = habitRow.createEl("p", { cls: "csv-modal-hint", text: "Select columns to track as habits. Auto-detected columns with binary values (0/1) are pre-selected." });
+    const habitGrid = habitRow.createDiv({ cls: "csv-modal-checkbox-grid" });
+
+    // Determine which columns are selected (use config if set, else auto-detected)
+    const selectedHabits = new Set(this.current.habitColumns ?? this.autoDetectedHabits);
+
+    this.headers.forEach(h => {
+      const label = habitGrid.createEl("label", { cls: "csv-modal-checkbox-label" });
+      const checkbox = label.createEl("input", { type: "checkbox" });
+      checkbox.checked = selectedHabits.has(h);
+      if (this.autoDetectedHabits.includes(h) && !this.current.habitColumns) {
+        label.addClass("auto-detected");
+      }
+      label.createSpan({ text: h });
+
+      checkbox.addEventListener("change", () => {
+        if (!this.current.habitColumns) {
+          this.current.habitColumns = [...this.autoDetectedHabits];
+        }
+        if (checkbox.checked) {
+          if (!this.current.habitColumns.includes(h)) {
+            this.current.habitColumns.push(h);
+          }
+        } else {
+          this.current.habitColumns = this.current.habitColumns.filter(c => c !== h);
+        }
+      });
+    });
 
     // Default mode for this file
     const modeRow = form.createDiv({ cls: "csv-modal-row" });
@@ -431,6 +499,7 @@ export class XLSXCardView extends FileView {
   private renderComponent: Component;
   private isXlsx = false;
   private saveTimer: number | null = null;
+  private searchQuery: string = "";
 
   constructor(leaf: WorkspaceLeaf, settings: CardViewSettings) {
     super(leaf);
@@ -715,13 +784,24 @@ export class XLSXCardView extends FileView {
 
   // ── Render root ────────────────────────────────────────────────────────────
 
-  private renderView(): void {
+  private contentArea: HTMLElement | null = null;
+
+  private renderView(contentOnly = false): void {
     const root = this.contentEl;
-    root.empty(); root.addClass("csv-card-view-root");
-    this.renderComponent.unload();
-    this.renderComponent = new Component(); this.renderComponent.load();
-    this.renderToolbar(root);
-    const content = root.createDiv({ cls: "csv-content-area" });
+
+    if (!contentOnly) {
+      root.empty(); root.addClass("csv-card-view-root");
+      this.renderComponent.unload();
+      this.renderComponent = new Component(); this.renderComponent.load();
+      this.renderToolbar(root);
+      this.contentArea = root.createDiv({ cls: "csv-content-area" });
+    } else if (this.contentArea) {
+      this.contentArea.empty();
+    }
+
+    const content = this.contentArea;
+    if (!content) return;
+
     if (!this.headers.length) { content.createEl("p",{text:"Empty or unreadable file.",cls:"csv-empty-state"}); return; }
     if (this.mode === "dashboard") this.renderDashboard(content);
     else if (this.mode === "kanban-genre") this.renderKanbanGenre(content);
@@ -746,15 +826,43 @@ export class XLSXCardView extends FileView {
       btn.addEventListener("click",()=>{ this.mode=id; this.renderView(); });
     });
 
+    // Search bar (only for kanban/table views, not dashboard)
+    if (this.mode !== "dashboard") {
+      const searchWrap = ctrl.createDiv({ cls: "csv-search-wrap" });
+      const searchInput = searchWrap.createEl("input", {
+        cls: "csv-search-input",
+        type: "text",
+        placeholder: "Search...",
+        value: this.searchQuery
+      });
+      const clearBtn = searchWrap.createEl("button", { cls: "csv-search-clear", text: "×" });
+      clearBtn.style.display = this.searchQuery ? "block" : "none";
+      searchInput.addEventListener("input", (e) => {
+        this.searchQuery = (e.target as HTMLInputElement).value;
+        clearBtn.style.display = this.searchQuery ? "block" : "none";
+        this.renderView(true); // Only re-render content, not toolbar
+      });
+      clearBtn.addEventListener("click", () => {
+        this.searchQuery = "";
+        searchInput.value = "";
+        clearBtn.style.display = "none";
+        this.renderView(true);
+      });
+    }
+
     // Per-file column config
     const cfgBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "⚙ Columns", title: "Configure columns for this file" });
     cfgBtn.addEventListener("click", () => {
-      new FileConfigModal(this.app, this.headers, this.file?.path ?? "", this.fileCfg, (cfg) => {
+      new FileConfigModal(this.app, this.headers, this.file?.path ?? "", this.fileCfg, this.autoDetectBooleanColumns(), (cfg) => {
         this.saveFileCfg(cfg);
         if (cfg.defaultMode) this.mode = cfg.defaultMode;
         this.renderView();
       }).open();
     });
+
+    // Mobile dashboard button (works for all file types)
+    const mobileBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "📱 Mobile", title: "Generate mobile dashboard with add form" });
+    mobileBtn.addEventListener("click", () => this.generateMobileFiles());
 
     ctrl.createEl("button",{cls:"csv-add-btn",text:"+ Add"}).addEventListener("click",()=>this.openAddModal());
   }
@@ -764,6 +872,19 @@ export class XLSXCardView extends FileView {
   private hasDateColumn(): boolean {
     const dateCol = this.getDateCol();
     return dateCol !== null;
+  }
+
+  // ── Search filtering ─────────────────────────────────────────────────────────
+
+  private getFilteredRows(): CSVRow[] {
+    if (!this.searchQuery.trim()) return this.rows;
+    const query = this.searchQuery.toLowerCase().trim();
+    return this.rows.filter(row => {
+      return this.headers.some(h => {
+        const val = row[h] ?? "";
+        return val.toLowerCase().includes(query);
+      });
+    });
   }
 
   private getDateCol(): string | null {
@@ -786,6 +907,14 @@ export class XLSXCardView extends FileView {
   }
 
   private getBooleanColumns(): string[] {
+    // Use configured habit columns if set, otherwise auto-detect
+    if (this.fileCfg.habitColumns && this.fileCfg.habitColumns.length > 0) {
+      return this.fileCfg.habitColumns.filter(h => this.headers.includes(h));
+    }
+    return this.autoDetectBooleanColumns();
+  }
+
+  private autoDetectBooleanColumns(): string[] {
     // Detect columns that look like boolean/habit columns (values are 0/1, true/false, yes/no, or empty)
     const boolPatterns = ["0", "1", "true", "false", "yes", "no", ""];
     return this.headers.filter(h => {
@@ -816,6 +945,7 @@ export class XLSXCardView extends FileView {
   // ── Dashboard view ──────────────────────────────────────────────────────────
 
   private selectedDate: string | null = null;
+  private selectedHabit: string | null = null;
   private chartInstance: Chart | null = null;
 
   private renderDashboard(container: HTMLElement): void {
@@ -842,23 +972,36 @@ export class XLSXCardView extends FileView {
     container.addClass("csv-dashboard");
 
     // ── Date Navigator ────────────────────────────────────────────────────────
+    // Compute all dates first (includes today even if no entry exists)
+    const allDates = [...new Set([...sortedRows.map(r => r[dateCol]), today])].filter(Boolean).sort();
+
     const nav = container.createDiv({ cls: "csv-dash-nav" });
 
-    const prevBtn = nav.createEl("button", { cls: "csv-dash-nav-btn", text: "◀" });
+    const prevBtn = nav.createEl("button", { cls: "csv-dash-nav-btn csv-dash-back-btn", text: "◀" });
     prevBtn.addEventListener("click", () => {
-      const dates = sortedRows.map(r => r[dateCol]).filter(Boolean);
-      const idx = dates.indexOf(this.selectedDate!);
+      const idx = allDates.indexOf(this.selectedDate!);
       if (idx > 0) {
-        this.selectedDate = dates[idx - 1];
+        this.selectedDate = allDates[idx - 1];
         this.renderView();
+      } else if (idx === -1 && allDates.length > 0) {
+        // Selected date not in list, go to most recent existing
+        const earlier = allDates.filter(d => d < this.selectedDate!);
+        if (earlier.length > 0) {
+          this.selectedDate = earlier[earlier.length - 1];
+          this.renderView();
+        }
       }
     });
 
     const dateDisplay = nav.createDiv({ cls: "csv-dash-date" });
+
+    // Green dot indicator if it's today
+    if (isToday) {
+      dateDisplay.createSpan({ cls: "csv-dash-today-dot" });
+    }
+
     const dateSelect = dateDisplay.createEl("select", { cls: "csv-dash-date-select" });
 
-    // Add all existing dates + today if not exists
-    const allDates = [...new Set([...sortedRows.map(r => r[dateCol]), today])].sort();
     allDates.forEach(d => {
       const opt = dateSelect.createEl("option", { text: d, value: d });
       if (d === this.selectedDate) opt.selected = true;
@@ -868,28 +1011,30 @@ export class XLSXCardView extends FileView {
       this.renderView();
     });
 
-    if (isToday) {
-      dateDisplay.createSpan({ cls: "csv-dash-today-badge", text: "Today" });
-    }
-
     const nextBtn = nav.createEl("button", { cls: "csv-dash-nav-btn", text: "▶" });
     nextBtn.addEventListener("click", () => {
-      const dates = sortedRows.map(r => r[dateCol]).filter(Boolean);
-      const idx = dates.indexOf(this.selectedDate!);
-      if (idx < dates.length - 1) {
-        this.selectedDate = dates[idx + 1];
+      const idx = allDates.indexOf(this.selectedDate!);
+      if (idx >= 0 && idx < allDates.length - 1) {
+        this.selectedDate = allDates[idx + 1];
         this.renderView();
-      } else if (this.selectedDate !== today) {
-        this.selectedDate = today;
-        this.renderView();
+      } else if (idx === -1) {
+        // Selected date not in list, go to next available
+        const later = allDates.filter(d => d > this.selectedDate!);
+        if (later.length > 0) {
+          this.selectedDate = later[0];
+          this.renderView();
+        }
       }
     });
 
-    const todayBtn = nav.createEl("button", { cls: "csv-dash-today-btn", text: "Today" });
-    todayBtn.addEventListener("click", () => {
-      this.selectedDate = today;
-      this.renderView();
-    });
+    // Only show "Today" button if not already on today
+    if (!isToday) {
+      const todayBtn = nav.createEl("button", { cls: "csv-dash-today-btn", text: "Today" });
+      todayBtn.addEventListener("click", () => {
+        this.selectedDate = today;
+        this.renderView();
+      });
+    }
 
     // ── Add new date if not exists ────────────────────────────────────────────
     if (!currentRow) {
@@ -999,37 +1144,102 @@ export class XLSXCardView extends FileView {
       return habitCols.every(h => this.isTruthy(r[h]));
     }).length;
 
-    // Streaks
+    // Streaks - must account for missing days (gaps break the streak)
     let bestStreak = 0, streak = 0;
+    let prevDate: Date | null = null;
     for (const r of sortedRows) {
       const done = habitCols.filter(h => this.isTruthy(r[h])).length;
-      if (done >= 1) { streak++; if (streak > bestStreak) bestStreak = streak; }
-      else streak = 0;
-    }
-    let currentStreak = 0;
-    for (let i = sortedRows.length - 1; i >= 0; i--) {
-      const done = habitCols.filter(h => this.isTruthy(sortedRows[i][h])).length;
-      if (done >= 1) currentStreak++;
-      else break;
+      const currentDate = this.parseDate(r[dateCol] ?? "");
+
+      // Check if this is a consecutive day (no gap)
+      let isConsecutive = true;
+      if (prevDate && currentDate) {
+        const dayDiff = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (dayDiff !== 1) isConsecutive = false;
+      }
+
+      if (done >= 1 && (isConsecutive || prevDate === null)) {
+        streak++;
+        if (streak > bestStreak) bestStreak = streak;
+      } else if (done >= 1) {
+        // Had a gap, start new streak
+        streak = 1;
+        if (streak > bestStreak) bestStreak = streak;
+      } else {
+        streak = 0;
+      }
+      prevDate = currentDate;
     }
 
+    // Current streak - check backwards from today, accounting for gaps
+    let currentStreak = 0;
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    let expectedDate = todayDate;
+
+    for (let i = sortedRows.length - 1; i >= 0; i--) {
+      const rowDate = this.parseDate(sortedRows[i][dateCol] ?? "");
+      if (!rowDate) break;
+
+      const dayDiff = Math.round((expectedDate.getTime() - rowDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Allow today or yesterday as starting point, then must be consecutive
+      if (currentStreak === 0 && dayDiff > 1) break; // Too old to start current streak
+      if (currentStreak > 0 && dayDiff !== 1) break; // Gap in streak
+
+      const done = habitCols.filter(h => this.isTruthy(sortedRows[i][h])).length;
+      if (done >= 1) {
+        currentStreak++;
+        expectedDate = rowDate;
+      } else {
+        break;
+      }
+    }
+
+    // Format stats like Dataview: "105 days logged · 2.0 avg/day · 0 perfect days · current streak 8d · best streak 90d"
     const statsBar = statsSection.createDiv({ cls: "csv-dash-stats-bar" });
-    statsBar.innerHTML = `
-      <span><strong>${totalDays}</strong> days logged</span>
-      <span><strong>${avgPerDay}</strong> avg/day</span>
-      <span><strong>${perfectDays}</strong> perfect days</span>
-      <span>current streak <strong>${currentStreak}d</strong></span>
-      <span>best streak <strong>${bestStreak}d</strong></span>
-    `;
+    statsBar.innerHTML = `<strong>${totalDays}</strong> days logged · <strong>${avgPerDay}</strong> avg/day · <strong>${perfectDays}</strong> perfect days · current streak <strong>${currentStreak}d</strong> · best streak <strong>${bestStreak}d</strong>`;
 
     // ── Per-habit cards ───────────────────────────────────────────────────────
     const cardsSection = container.createDiv({ cls: "csv-dash-cards-section" });
     const cardsGrid = cardsSection.createDiv({ cls: "csv-dash-cards-grid" });
 
+    // Get current year for "this year" stats
+    const currentYear = new Date().getFullYear();
+
+    // Habit icons - customize per habit name (fallback to ○)
+    const habitIcons: { [key: string]: string } = {
+      "language": "○", "read": "≡", "gym": "⊞", "vitamins": "⊙",
+      "cardio": "↑", "meditate": "◎", "challenge": "✿", "journal": "✎",
+      "exercise": "⊞", "water": "💧", "sleep": "🌙", "study": "📚",
+    };
+
     const habitStats = habitCols.map(h => {
       const doneDays = sortedRows.filter(r => this.isTruthy(r[h]));
       const lastDone = doneDays.length > 0 ? doneDays[doneDays.length - 1][dateCol] : null;
-      return { habit: h, doneCount: doneDays.length, lastDone };
+
+      // Get years with data for this habit
+      const yearsWithData = new Set<number>();
+      doneDays.forEach(r => {
+        const d = this.parseDate(r[dateCol] ?? "");
+        if (d) yearsWithData.add(d.getFullYear());
+      });
+
+      // Count this year
+      const thisYearRows = sortedRows.filter(r => {
+        const d = this.parseDate(r[dateCol] ?? "");
+        return d && d.getFullYear() === currentYear;
+      });
+      const doneThisYear = thisYearRows.filter(r => this.isTruthy(r[h])).length;
+
+      return {
+        habit: h,
+        doneCount: doneDays.length,
+        doneThisYear,
+        totalThisYear: thisYearRows.length,
+        lastDone,
+        years: Array.from(yearsWithData).sort()
+      };
     }).sort((a, b) => {
       // Sort by last done date (most recent first)
       if (!a.lastDone && !b.lastDone) return 0;
@@ -1038,18 +1248,369 @@ export class XLSXCardView extends FileView {
       return b.lastDone.localeCompare(a.lastDone);
     });
 
-    habitStats.forEach(({ habit, doneCount, lastDone }) => {
+    habitStats.forEach(({ habit, doneCount, doneThisYear, totalThisYear, lastDone, years }) => {
       const card = cardsGrid.createDiv({ cls: "csv-dash-habit-card" });
-      card.createDiv({ cls: "csv-dash-habit-card-name", text: habit });
-      card.createDiv({ cls: "csv-dash-habit-card-count", text: `${doneCount} of ${totalDays} days` });
-      card.createDiv({ cls: "csv-dash-habit-card-last", text: lastDone ? `Last: ${lastDone}` : "Never" });
+
+      // Header with icon and name
+      const icon = habitIcons[habit.toLowerCase()] ?? "○";
+      const header = card.createDiv({ cls: "csv-dash-habit-card-header" });
+      header.createSpan({ cls: "csv-dash-habit-icon", text: icon });
+      header.createSpan({ cls: "csv-dash-habit-card-name", text: titleCase(habit) });
+
+      // Year badges
+      if (years.length > 0) {
+        const yearBadges = card.createDiv({ cls: "csv-dash-habit-years" });
+        yearBadges.setText(years.join(" · "));
+      }
+
+      // Stats
+      card.createDiv({ cls: "csv-dash-habit-card-thisyear", text: `${doneThisYear} of ${totalThisYear} complete this year` });
+      card.createDiv({ cls: "csv-dash-habit-card-alltime", text: `${doneCount} of ${totalDays} all time` });
+
+      // Last logged with formatted date
+      if (lastDone) {
+        const d = this.parseDate(lastDone);
+        const formatted = d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : lastDone;
+        card.createDiv({ cls: "csv-dash-habit-card-last", text: `Last logged: ${formatted}` });
+      } else {
+        card.createDiv({ cls: "csv-dash-habit-card-last", text: "Never logged" });
+      }
 
       // Progress bar
       const pct = totalDays > 0 ? (doneCount / totalDays) * 100 : 0;
       const progressWrap = card.createDiv({ cls: "csv-dash-habit-progress" });
       const progressBar = progressWrap.createDiv({ cls: "csv-dash-habit-progress-bar" });
       progressBar.style.width = `${pct}%`;
+
+      // Click to show per-habit timeline
+      card.addEventListener("click", () => {
+        this.selectedHabit = this.selectedHabit === habit ? null : habit;
+        this.renderView();
+      });
+      if (this.selectedHabit === habit) {
+        card.addClass("selected");
+      }
     });
+
+    // ── Per-habit timeline (if a habit is selected) ───────────────────────────
+    if (this.selectedHabit && habitCols.includes(this.selectedHabit)) {
+      this.renderHabitTimeline(container, sortedRows, dateCol, this.selectedHabit);
+    }
+  }
+
+  private timelineYear: number = new Date().getFullYear();
+
+  private renderHabitTimeline(container: HTMLElement, sortedRows: CSVRow[], dateCol: string, habit: string): void {
+    const timelineSection = container.createDiv({ cls: "csv-dash-timeline-section" });
+    const header = timelineSection.createDiv({ cls: "csv-dash-timeline-header" });
+    header.createEl("h3", { text: `${titleCase(habit)} Timeline`, cls: "csv-dash-section-title" });
+
+    // Year selector
+    const yearSelect = header.createEl("select", { cls: "csv-dash-year-select" });
+    const availableYears = new Set<number>();
+    sortedRows.forEach(r => {
+      const d = this.parseDate(r[dateCol] ?? "");
+      if (d) availableYears.add(d.getFullYear());
+    });
+    availableYears.add(new Date().getFullYear());
+    Array.from(availableYears).sort().reverse().forEach(y => {
+      const opt = yearSelect.createEl("option", { text: String(y), value: String(y) });
+      if (y === this.timelineYear) opt.selected = true;
+    });
+    yearSelect.addEventListener("change", () => {
+      this.timelineYear = parseInt(yearSelect.value);
+      this.renderView();
+    });
+
+    const closeBtn = header.createEl("button", { cls: "csv-dash-timeline-close", text: "✕" });
+    closeBtn.addEventListener("click", () => {
+      this.selectedHabit = null;
+      this.renderView();
+    });
+
+    // Build a map of date -> done status
+    const dateMap = new Map<string, boolean>();
+    sortedRows.forEach(r => {
+      dateMap.set(r[dateCol] ?? "", this.isTruthy(r[habit]));
+    });
+
+    // Create calendar-style grid (like GitHub contribution graph)
+    const gridWrap = timelineSection.createDiv({ cls: "csv-dash-timeline-grid-wrap" });
+
+    // Month labels row
+    const monthRow = gridWrap.createDiv({ cls: "csv-dash-timeline-months" });
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    months.forEach(m => monthRow.createSpan({ cls: "csv-dash-timeline-month-label", text: m }));
+
+    // Grid of days (12 months x ~31 days)
+    const grid = gridWrap.createDiv({ cls: "csv-dash-timeline-calendar" });
+
+    // Day labels (1-31)
+    const dayLabels = grid.createDiv({ cls: "csv-dash-timeline-day-labels" });
+    for (let d = 1; d <= 31; d++) {
+      dayLabels.createDiv({ cls: "csv-dash-timeline-day-label", text: d % 5 === 0 || d === 1 ? String(d) : "" });
+    }
+
+    // Each month column
+    for (let month = 0; month < 12; month++) {
+      const monthCol = grid.createDiv({ cls: "csv-dash-timeline-month-col" });
+      const daysInMonth = new Date(this.timelineYear, month + 1, 0).getDate();
+
+      for (let day = 1; day <= 31; day++) {
+        if (day > daysInMonth) {
+          monthCol.createDiv({ cls: "csv-dash-timeline-cell empty" });
+          continue;
+        }
+
+        const dateStr = `${this.timelineYear}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const isDone = dateMap.get(dateStr) ?? false;
+        const hasEntry = dateMap.has(dateStr);
+        const isFuture = new Date(this.timelineYear, month, day) > new Date();
+
+        const cell = monthCol.createDiv({
+          cls: `csv-dash-timeline-cell ${isFuture ? "future" : ""} ${isDone ? "done" : ""} ${hasEntry && !isDone ? "missed" : ""} ${!hasEntry && !isFuture ? "no-entry" : ""}`
+        });
+        cell.title = `${dateStr}: ${isFuture ? "Future" : isDone ? "✓ Done" : hasEntry ? "✗ Missed" : "No entry"}`;
+      }
+    }
+
+    // Stats for this habit (filtered by selected year)
+    const yearRows = sortedRows.filter(r => {
+      const d = this.parseDate(r[dateCol] ?? "");
+      return d && d.getFullYear() === this.timelineYear;
+    });
+    const doneDays = yearRows.filter(r => this.isTruthy(r[habit])).length;
+    const totalEntries = yearRows.length;
+
+    // Calculate streak for this specific habit
+    let habitStreak = 0, habitBestStreak = 0, tempStreak = 0;
+    let prevDate: Date | null = null;
+    for (const r of sortedRows) {
+      const done = this.isTruthy(r[habit]);
+      const currentDateParsed = this.parseDate(r[dateCol] ?? "");
+      let isConsecutive = true;
+      if (prevDate && currentDateParsed) {
+        const dayDiff = Math.round((currentDateParsed.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (dayDiff !== 1) isConsecutive = false;
+      }
+      if (done && (isConsecutive || prevDate === null)) {
+        tempStreak++;
+        if (tempStreak > habitBestStreak) habitBestStreak = tempStreak;
+      } else if (done) {
+        tempStreak = 1;
+      } else {
+        tempStreak = 0;
+      }
+      prevDate = currentDateParsed;
+    }
+
+    // Current streak for this habit
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    let expectedDate = todayDate;
+    for (let i = sortedRows.length - 1; i >= 0; i--) {
+      const rowDate = this.parseDate(sortedRows[i][dateCol] ?? "");
+      if (!rowDate) break;
+      const dayDiff = Math.round((expectedDate.getTime() - rowDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (habitStreak === 0 && dayDiff > 1) break;
+      if (habitStreak > 0 && dayDiff !== 1) break;
+      if (this.isTruthy(sortedRows[i][habit])) {
+        habitStreak++;
+        expectedDate = rowDate;
+      } else {
+        break;
+      }
+    }
+
+    const statsEl = timelineSection.createDiv({ cls: "csv-dash-timeline-stats" });
+    statsEl.innerHTML = `<strong>${doneDays}</strong> of ${totalEntries} in ${this.timelineYear} · current streak <strong>${habitStreak}d</strong> · best streak <strong>${habitBestStreak}d</strong>`;
+  }
+
+  // ── Mobile Files Generation ─────────────────────────────────────────────────
+
+  private async generateMobileFiles(): Promise<void> {
+    if (!this.file) return;
+
+    const csvFolder = this.file.parent?.path ?? "";
+    const dashboardPath = csvFolder ? `${csvFolder}/${this.file.basename} - Mobile.md` : `${this.file.basename} - Mobile.md`;
+
+    // For XLSX files, export a CSV copy to hidden helper folder for Dataview
+    let csvPath = this.file.path;
+    if (this.isXlsx) {
+      const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+      csvPath = `${helperFolder}/${this.file.basename}.csv`;
+
+      // Create helper folder if needed
+      if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+        await this.app.vault.createFolder(helperFolder);
+      }
+
+      const csvContent = Papa.unparse(this.rows, { columns: this.headers });
+      const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+      if (existingCsv && existingCsv instanceof TFile) {
+        await this.app.vault.modify(existingCsv, csvContent);
+      } else {
+        await this.app.vault.create(csvPath, csvContent);
+      }
+    }
+
+    // Determine file type (habit tracker vs library)
+    const dateCol = this.getDateCol();
+    const categoryCol = this.getCategoryCol();
+
+    let dashboardContent: string;
+
+    if (dateCol) {
+      // Habit tracker - use Dataview to query CSV
+      const habitCols = this.getBooleanColumns();
+      dashboardContent = this.generateHabitMobileDashboard(habitCols, dateCol, csvPath);
+    } else if (categoryCol) {
+      // Library (books, movies) - display table and add form
+      dashboardContent = this.generateLibraryMobileDashboard(csvPath);
+    } else {
+      // Generic - just show table and add form
+      dashboardContent = this.generateGenericMobileDashboard(csvPath);
+    }
+
+    const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+    if (existingDashboard && existingDashboard instanceof TFile) {
+      await this.app.vault.modify(existingDashboard, dashboardContent);
+      new Notice(`Updated: ${dashboardPath}`);
+    } else {
+      await this.app.vault.create(dashboardPath, dashboardContent);
+      new Notice(`Created: ${dashboardPath}`);
+    }
+  }
+
+  private generateHabitMobileDashboard(habitCols: string[], dateCol: string, csvPath: string): string {
+    const fileName = this.file?.name ?? "";
+    // Use short column names for compact display
+    const shortNames = habitCols.map(h => {
+      const t = titleCase(h);
+      return t.length > 6 ? t.slice(0, 5) + "." : t;
+    });
+
+    return `# ${this.file?.basename} - Mobile
+
+> Requires **Dataview** plugin with DataviewJS enabled.
+
+## Quick Add
+
+\`\`\`csv-add
+file: ${fileName}
+\`\`\`
+
+## Recent Entries
+
+\`\`\`dataviewjs
+const csvData = await dv.io.csv("${csvPath}");
+if (!csvData || !csvData.length) {
+  dv.paragraph("No data found");
+} else {
+  const data = csvData.array();
+  const recent = data.slice(-10).reverse();
+  const habits = [${habitCols.map(h => `"${h}"`).join(", ")}];
+  const labels = [${shortNames.map(h => `"${h}"`).join(", ")}];
+
+  dv.table(
+    ["Date", ...labels],
+    recent.map(r => {
+      const date = r["${dateCol}"] || "";
+      const shortDate = date.slice(5); // MM-DD format
+      return [shortDate, ...habits.map(h => r[h] == "1" || r[h] == "true" ? "✓" : "·")];
+    })
+  );
+}
+\`\`\`
+`;
+  }
+
+  private generateLibraryMobileDashboard(csvPath: string): string {
+    const fileName = this.file?.name ?? "";
+    const titleKey = this.titleKey();
+    const categoryCol = this.getCategoryCol();
+    const statusCol = this.getStatusCol();
+
+    const displayCols = [titleKey, categoryCol, statusCol].filter(Boolean) as string[];
+
+    return `# ${this.file?.basename} - Mobile
+
+> Requires **Dataview** plugin with DataviewJS enabled.
+
+## Add New Entry
+
+\`\`\`csv-add
+file: ${fileName}
+\`\`\`
+
+## Library
+
+\`\`\`dataviewjs
+const csvData = await dv.io.csv("${csvPath}");
+if (!csvData || !csvData.length) {
+  dv.paragraph("No data found");
+} else {
+  const data = csvData.array();
+  dv.table(
+    [${displayCols.map(c => `"${c}"`).join(", ")}],
+    data.slice(-20).reverse().map(r => [${displayCols.map(c => `r["${c}"] || ""`).join(", ")}])
+  );
+  dv.paragraph(\`*Showing last 20 of \${data.length} entries*\`);
+}
+\`\`\`
+
+## Search by Status
+
+\`\`\`dataviewjs
+const csvData = await dv.io.csv("${csvPath}");
+if (!csvData || !csvData.length) {
+  dv.paragraph("No data");
+} else {
+  const data = csvData.array();
+  const statusCol = "${statusCol || "Status"}";
+  const statuses = [...new Set(data.map(r => r[statusCol]).filter(Boolean))];
+
+  for (const status of statuses) {
+    const items = data.filter(r => r[statusCol] === status);
+    dv.header(3, \`\${status} (\${items.length})\`);
+    dv.list(items.slice(0, 5).map(r => r["${titleKey}"]));
+    if (items.length > 5) dv.paragraph(\`*... and \${items.length - 5} more*\`);
+  }
+}
+\`\`\`
+`;
+  }
+
+  private generateGenericMobileDashboard(csvPath: string): string {
+    const fileName = this.file?.name ?? "";
+    const displayCols = this.headers.slice(0, 4);
+
+    return `# ${this.file?.basename} - Mobile
+
+> Requires **Dataview** plugin with DataviewJS enabled.
+
+## Add New Entry
+
+\`\`\`csv-add
+file: ${fileName}
+\`\`\`
+
+## Recent Entries
+
+\`\`\`dataviewjs
+const csvData = await dv.io.csv("${csvPath}");
+if (!csvData || !csvData.length) {
+  dv.paragraph("No data found");
+} else {
+  const data = csvData.array();
+  dv.table(
+    [${displayCols.map(c => `"${c}"`).join(", ")}],
+    data.slice(-15).reverse().map(r => [${displayCols.map(c => `r["${c}"] || ""`).join(", ")}])
+  );
+  dv.paragraph(\`*Showing last 15 of \${data.length} entries*\`);
+}
+\`\`\`
+`;
   }
 
   // ── Kanban by Genre ────────────────────────────────────────────────────────
@@ -1059,19 +1620,29 @@ export class XLSXCardView extends FileView {
     const sc = this.getStatusCol();
     if (!cc) { container.createEl("p",{text:`No "${this.settings.categoryColumn}" column found.`,cls:"csv-empty-state"}); return; }
 
+    const filteredRows = this.getFilteredRows();
+
+    // Show search result count if searching
+    if (this.searchQuery.trim()) {
+      container.createDiv({ cls: "csv-search-results", text: `Found ${filteredRows.length} of ${this.rows.length} entries` });
+    }
+
     const genreSet = new Set<string>();
-    this.rows.forEach(r => (r[cc]??"").split(",").map(s=>s.trim()).filter(Boolean).forEach(c=>genreSet.add(c)));
+    filteredRows.forEach(r => (r[cc]??"").split(",").map(s=>s.trim()).filter(Boolean).forEach(c=>genreSet.add(c)));
     const genres = Array.from(genreSet).sort();
-    if (!genres.length) { container.createEl("p",{text:"No genre values found.",cls:"csv-empty-state"}); return; }
+    if (!genres.length) {
+      container.createEl("p",{text: this.searchQuery ? "No matching entries found." : "No genre values found.",cls:"csv-empty-state"});
+      return;
+    }
 
     const statusOrder = ["In progress","Finished","Not started"];
     const statuses = sc
-      ? Array.from(new Set([...statusOrder,...this.rows.map(r=>r[sc]??"").filter(Boolean)])).filter(s=>this.rows.some(r=>(r[sc]??"")==s))
+      ? Array.from(new Set([...statusOrder,...filteredRows.map(r=>r[sc]??"").filter(Boolean)])).filter(s=>filteredRows.some(r=>(r[sc]??"")==s))
       : [];
 
     const board = container.createDiv({cls:"csv-kanban-board"});
     genres.forEach(genre => {
-      const genreRows = this.rows.filter(r=>(r[cc]??"").split(",").map(s=>s.trim()).includes(genre));
+      const genreRows = filteredRows.filter(r=>(r[cc]??"").split(",").map(s=>s.trim()).includes(genre));
       if (!genreRows.length) return;
       const col = board.createDiv({cls:"csv-kanban-col"});
       const ch = col.createDiv({cls:"csv-kanban-col-header"});
@@ -1226,6 +1797,13 @@ export class XLSXCardView extends FileView {
   // ── Table ──────────────────────────────────────────────────────────────────
 
   private renderTable(container: HTMLElement): void {
+    const filteredRows = this.getFilteredRows();
+
+    // Show search result count if searching
+    if (this.searchQuery.trim()) {
+      container.createDiv({ cls: "csv-search-results", text: `Found ${filteredRows.length} of ${this.rows.length} entries` });
+    }
+
     const wrap = container.createDiv({cls:"csv-table-wrapper"});
     const table = wrap.createEl("table",{cls:"csv-table"});
     const hr = table.createEl("thead").createEl("tr");
@@ -1247,7 +1825,7 @@ export class XLSXCardView extends FileView {
     hr.createEl("th",{text:""});
 
     const tbody = table.createEl("tbody");
-    this.rows.forEach((row, idx) => {
+    filteredRows.forEach((row) => {
       const tr = tbody.createEl("tr");
       this.headers.forEach(h => {
         const td = tr.createEl("td");
@@ -1272,7 +1850,7 @@ export class XLSXCardView extends FileView {
       at.createEl("button",{cls:`csv-table-notes-btn ${hasFile?"exists":""}`,text:hasFile?"📄":"✚",title:hasFile?"Open notes":"Create notes"})
         .addEventListener("click",()=>this.openOrCreateNotes(row));
       at.createEl("button",{cls:"csv-table-del-btn",text:"✕"})
-        .addEventListener("click",()=>{ this.rows.splice(idx,1); this.scheduleSave(); this.renderView(); });
+        .addEventListener("click",()=>{ const actualIdx = this.rows.indexOf(row); if(actualIdx>=0) this.rows.splice(actualIdx,1); this.scheduleSave(); this.renderView(); });
     });
   }
 
@@ -1325,7 +1903,283 @@ export default class CardViewPlugin extends Plugin {
     this.registerView(CARD_VIEW_TYPE, leaf=>new XLSXCardView(leaf, this.settings));
     this.registerExtensions(["csv","xlsx"], CARD_VIEW_TYPE);
     this.addSettingTab(new CardViewSettingTab(this.app, this));
+
+    // Register csv-add code block for mobile entry
+    this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
+      await this.renderAddEntryForm(source.trim(), el, ctx);
+    });
   }
+
+  async renderAddEntryForm(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> {
+    // Parse source to get file path
+    const lines = source.split("\n").map(l => l.trim()).filter(Boolean);
+    let filePath = "";
+    for (const line of lines) {
+      if (line.startsWith("file:")) {
+        filePath = line.replace("file:", "").trim();
+        break;
+      }
+    }
+
+    if (!filePath) {
+      el.createEl("p", { text: "Error: No file specified. Use: file: yourfile.csv", cls: "csv-add-error" });
+      return;
+    }
+
+    // Resolve path relative to current note
+    const currentFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+    const baseFolder = currentFile?.parent?.path ?? "";
+    const fullPath = filePath.includes("/") ? filePath : (baseFolder ? `${baseFolder}/${filePath}` : filePath);
+
+    const file = this.app.vault.getAbstractFileByPath(fullPath);
+    if (!file || !(file instanceof TFile)) {
+      el.createEl("p", { text: `Error: File not found: ${fullPath}`, cls: "csv-add-error" });
+      return;
+    }
+
+    // Read the file to get headers
+    let headers: string[] = [];
+    let rows: CSVRow[] = [];
+    const isXlsx = file.extension === "xlsx";
+
+    try {
+      if (isXlsx) {
+        const buf = await this.app.vault.readBinary(file);
+        const wb = XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+        if (raw.length) {
+          headers = (raw[0] as string[]).map(String);
+          rows = raw.slice(1).map(r => {
+            const row: CSVRow = {};
+            headers.forEach((h, i) => { row[h] = String((r as string[])[i] ?? ""); });
+            return row;
+          });
+        }
+      } else {
+        const text = await this.app.vault.read(file);
+        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+        headers = result.meta.fields ?? [];
+        rows = result.data as CSVRow[];
+      }
+    } catch (e) {
+      el.createEl("p", { text: `Error reading file: ${e}`, cls: "csv-add-error" });
+      return;
+    }
+
+    if (!headers.length) {
+      el.createEl("p", { text: "Error: No columns found in file", cls: "csv-add-error" });
+      return;
+    }
+
+    // Detect column types
+    const binaryPatterns = ["0", "1", "true", "false", "yes", "no", ""];
+    const isBinaryCol = (h: string): boolean => {
+      const vals = rows.map(r => (r[h] ?? "").toLowerCase().trim());
+      return vals.length > 0 && vals.every(v => binaryPatterns.includes(v));
+    };
+
+    const isDateCol = (h: string): boolean => {
+      const hLower = h.toLowerCase();
+      if (["date", "day", "datum"].includes(hLower)) return true;
+      const vals = rows.slice(0, 5).map(r => r[h] ?? "");
+      return vals.length > 0 && vals.every(v => /^\d{4}-\d{2}-\d{2}$/.test(v));
+    };
+
+    const isNotesCol = (h: string): boolean => {
+      const hLower = h.toLowerCase();
+      return ["notes", "note", "comments", "description", "journal"].includes(hLower);
+    };
+
+    // Categorize columns
+    const binaryCols = headers.filter(h => isBinaryCol(h) && !isDateCol(h));
+    const dateCols = headers.filter(h => isDateCol(h));
+    const notesCols = headers.filter(h => isNotesCol(h));
+    const otherCols = headers.filter(h => !binaryCols.includes(h) && !dateCols.includes(h) && !notesCols.includes(h));
+
+    // Render compact form
+    const form = el.createDiv({ cls: "csv-add-form csv-add-compact" });
+
+    const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
+    const toggleStates: Record<string, boolean> = {};
+
+    // Date field first (if habit tracker)
+    dateCols.forEach(h => {
+      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-date-field" });
+      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
+      const dateInput = fieldWrap.createEl("input", { cls: "csv-add-input", type: "date" });
+      dateInput.value = new Date().toISOString().split("T")[0]; // Default to today
+      inputs[h] = dateInput;
+    });
+
+    // Binary columns as toggles in a grid
+    if (binaryCols.length > 0) {
+      const toggleGrid = form.createDiv({ cls: "csv-add-toggle-grid" });
+      binaryCols.forEach(h => {
+        toggleStates[h] = false;
+        const toggle = toggleGrid.createDiv({ cls: "csv-add-toggle" });
+        const checkbox = toggle.createEl("input", { type: "checkbox", cls: "csv-add-checkbox" });
+        checkbox.id = `toggle-${h}`;
+        const label = toggle.createEl("label", { text: titleCase(h), cls: "csv-add-toggle-label" });
+        label.setAttribute("for", `toggle-${h}`);
+        checkbox.addEventListener("change", () => { toggleStates[h] = checkbox.checked; });
+        inputs[h] = checkbox;
+      });
+    }
+
+    // Other fields (title, author, category, etc.)
+    otherCols.forEach(h => {
+      const fieldWrap = form.createDiv({ cls: "csv-add-field" });
+      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
+
+      const uniqueVals = new Set(rows.map(r => (r[h] ?? "").trim()).filter(Boolean));
+      if (uniqueVals.size > 0 && uniqueVals.size <= 15) {
+        const select = fieldWrap.createEl("select", { cls: "csv-add-select" });
+        select.createEl("option", { text: "", value: "" });
+        Array.from(uniqueVals).sort().forEach(v => select.createEl("option", { text: v, value: v }));
+        select.createEl("option", { text: "+ Custom", value: "__custom__" });
+        const customInput = fieldWrap.createEl("input", { cls: "csv-add-input csv-add-custom-input", type: "text", placeholder: "Enter custom value" });
+        customInput.style.display = "none";
+        select.addEventListener("change", () => {
+          customInput.style.display = select.value === "__custom__" ? "block" : "none";
+          if (select.value === "__custom__") customInput.focus();
+        });
+        inputs[h] = select;
+        inputs[`${h}__custom`] = customInput as HTMLInputElement;
+      } else {
+        inputs[h] = fieldWrap.createEl("input", { cls: "csv-add-input", type: "text", placeholder: titleCase(h) });
+      }
+    });
+
+    // Notes field last (if any)
+    notesCols.forEach(h => {
+      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-notes-field" });
+      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
+      inputs[h] = fieldWrap.createEl("textarea", { cls: "csv-add-textarea", placeholder: "Optional notes..." }) as any;
+    });
+
+    // Submit button
+    const submitBtn = form.createEl("button", { text: "Add Entry", cls: "csv-add-submit" });
+
+    submitBtn.addEventListener("click", async () => {
+      // Gather values
+      const newRow: CSVRow = {};
+      headers.forEach(h => {
+        if (binaryCols.includes(h)) {
+          newRow[h] = toggleStates[h] ? "1" : "0";
+        } else if (inputs[h] instanceof HTMLSelectElement && (inputs[h] as HTMLSelectElement).value === "__custom__") {
+          newRow[h] = (inputs[`${h}__custom`] as HTMLInputElement)?.value ?? "";
+        } else if (inputs[h] instanceof HTMLTextAreaElement) {
+          newRow[h] = (inputs[h] as HTMLTextAreaElement).value;
+        } else {
+          newRow[h] = (inputs[h] as HTMLInputElement)?.value ?? "";
+        }
+      });
+
+      // Check if at least one field is filled (for non-habit trackers) or date is set (for habit trackers)
+      const hasDate = dateCols.length > 0 && dateCols.some(h => (newRow[h] ?? "").trim());
+      const hasOtherValue = [...otherCols, ...notesCols].some(h => (newRow[h] ?? "").trim());
+      const hasToggle = binaryCols.some(h => toggleStates[h]);
+
+      if (!hasDate && !hasOtherValue && !hasToggle) {
+        new Notice("Please fill at least one field");
+        return;
+      }
+
+      // Check for duplicate date entry (for habit trackers)
+      let isUpdate = false;
+      let existingRowIdx = -1;
+      if (dateCols.length > 0) {
+        const dateCol = dateCols[0];
+        const dateVal = newRow[dateCol];
+        existingRowIdx = rows.findIndex(r => r[dateCol] === dateVal);
+        if (existingRowIdx >= 0) {
+          // Update existing row - merge values (only update non-empty new values)
+          isUpdate = true;
+          const existingRow = rows[existingRowIdx];
+          headers.forEach(h => {
+            if (binaryCols.includes(h)) {
+              // For binary cols, always use the new toggle state
+              existingRow[h] = newRow[h];
+            } else if ((newRow[h] ?? "").trim()) {
+              // For other cols, only update if new value is non-empty
+              existingRow[h] = newRow[h];
+            }
+          });
+        } else {
+          rows.push(newRow);
+        }
+      } else {
+        rows.push(newRow);
+      }
+
+      try {
+        // Save to main file (XLSX or CSV)
+        if (isXlsx) {
+          const ws = XLSX.utils.json_to_sheet(rows.map(r => {
+            const obj: Record<string, string> = {};
+            headers.forEach(h => { obj[h] = r[h] ?? ""; });
+            return obj;
+          }), { header: headers });
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+          const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+          await this.app.vault.modifyBinary(file, buf);
+
+          // Also update the CSV helper file for Dataview
+          const csvFolder = file.parent?.path ?? "";
+          const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+          const csvPath = `${helperFolder}/${file.basename}.csv`;
+
+          // Ensure helper folder exists
+          if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+            await this.app.vault.createFolder(helperFolder);
+          }
+
+          // Write CSV
+          const csvContent = Papa.unparse(rows, { columns: headers });
+          const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+          if (existingCsv && existingCsv instanceof TFile) {
+            await this.app.vault.modify(existingCsv, csvContent);
+          } else {
+            await this.app.vault.create(csvPath, csvContent);
+          }
+        } else {
+          const csv = Papa.unparse(rows, { columns: headers });
+          await this.app.vault.modify(file, csv);
+        }
+
+        new Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);
+
+        // Clear form (but keep date for quick re-entry)
+        binaryCols.forEach(h => {
+          toggleStates[h] = false;
+          const checkbox = inputs[h] as HTMLInputElement;
+          if (checkbox) checkbox.checked = false;
+        });
+        [...otherCols, ...notesCols].forEach(h => {
+          const input = inputs[h];
+          if (input instanceof HTMLSelectElement) {
+            input.selectedIndex = 0;
+          } else if (input instanceof HTMLTextAreaElement) {
+            input.value = "";
+          } else if (input) {
+            (input as HTMLInputElement).value = "";
+          }
+          const customInput = inputs[`${h}__custom`];
+          if (customInput) {
+            (customInput as HTMLInputElement).value = "";
+            (customInput as HTMLInputElement).style.display = "none";
+          }
+        });
+        // Update toggle visual state
+        form.querySelectorAll(".csv-add-toggle").forEach(t => t.classList.remove("checked"));
+      } catch (e) {
+        new Notice(`Error saving: ${e}`);
+      }
+    });
+  }
+
   async loadSettings(): Promise<void> { this.settings=Object.assign({},DEFAULT_SETTINGS,await this.loadData()); }
   async saveSettings(): Promise<void> { await this.saveData(this.settings); }
 }

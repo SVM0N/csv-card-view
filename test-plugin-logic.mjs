@@ -416,6 +416,135 @@ test("escapeCSV: handles various special cases", () => {
 });
 
 // ============================================================================
+// New Feature Tests
+// ============================================================================
+
+console.log("\n=== Title Case Function ===\n");
+
+function titleCase(str) {
+  return str.split(/[\s_-]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
+
+test("titleCase: basic words", () => {
+  assertEqual(titleCase("hello"), "Hello");
+  assertEqual(titleCase("WORLD"), "World");
+  assertEqual(titleCase("hello world"), "Hello World");
+});
+
+test("titleCase: handles underscores and dashes", () => {
+  assertEqual(titleCase("first_name"), "First Name");
+  assertEqual(titleCase("last-name"), "Last Name");
+  assertEqual(titleCase("user_first_name"), "User First Name");
+});
+
+test("titleCase: handles mixed case", () => {
+  assertEqual(titleCase("hELLO wORLD"), "Hello World");
+  assertEqual(titleCase("VITAMINS"), "Vitamins");
+  assertEqual(titleCase("cardio"), "Cardio");
+});
+
+console.log("\n=== Binary Column Detection ===\n");
+
+function isBinaryColumn(values) {
+  const binaryPatterns = ["0", "1", "true", "false", "yes", "no", ""];
+  const normalized = values.map(v => (v ?? "").toLowerCase().trim());
+  return normalized.length > 0 && normalized.every(v => binaryPatterns.includes(v));
+}
+
+test("isBinaryColumn: detects 0/1 columns", () => {
+  assertEqual(isBinaryColumn(["0", "1", "1", "0"]), true);
+  assertEqual(isBinaryColumn(["0", "1", "", "0"]), true);
+});
+
+test("isBinaryColumn: detects true/false columns", () => {
+  assertEqual(isBinaryColumn(["true", "false", "true"]), true);
+  assertEqual(isBinaryColumn(["TRUE", "FALSE"]), true);
+});
+
+test("isBinaryColumn: detects yes/no columns", () => {
+  assertEqual(isBinaryColumn(["yes", "no", "yes"]), true);
+  assertEqual(isBinaryColumn(["YES", "NO", ""]), true);
+});
+
+test("isBinaryColumn: rejects non-binary columns", () => {
+  assertEqual(isBinaryColumn(["apple", "banana"]), false);
+  assertEqual(isBinaryColumn(["0", "1", "2"]), false);
+  assertEqual(isBinaryColumn(["yes", "no", "maybe"]), false);
+});
+
+console.log("\n=== Date Column Detection ===\n");
+
+function isDateColumn(headerName, sampleValues) {
+  const hLower = headerName.toLowerCase();
+  if (["date", "day", "datum"].includes(hLower)) return true;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  return sampleValues.length > 0 && sampleValues.every(v => datePattern.test(v));
+}
+
+test("isDateColumn: detects by name", () => {
+  assertEqual(isDateColumn("date", []), true);
+  assertEqual(isDateColumn("Date", []), true);
+  assertEqual(isDateColumn("DAY", []), true);
+  assertEqual(isDateColumn("datum", []), true);
+});
+
+test("isDateColumn: detects by value pattern", () => {
+  assertEqual(isDateColumn("created", ["2024-01-15", "2024-02-20"]), true);
+  assertEqual(isDateColumn("timestamp", ["2024-01-01", "2024-12-31"]), true);
+});
+
+test("isDateColumn: rejects non-date columns", () => {
+  assertEqual(isDateColumn("name", ["John", "Jane"]), false);
+  assertEqual(isDateColumn("year", ["2024", "2025"]), false);
+  assertEqual(isDateColumn("time", ["10:30", "14:45"]), false);
+});
+
+console.log("\n=== Search Filtering ===\n");
+
+function filterRows(rows, headers, query) {
+  if (!query.trim()) return rows;
+  const q = query.toLowerCase().trim();
+  return rows.filter(row => {
+    return headers.some(h => {
+      const val = row[h] ?? "";
+      return val.toLowerCase().includes(q);
+    });
+  });
+}
+
+test("filterRows: empty query returns all rows", () => {
+  const rows = [{ Name: "John" }, { Name: "Jane" }];
+  assertEqual(filterRows(rows, ["Name"], ""), rows);
+  assertEqual(filterRows(rows, ["Name"], "   "), rows);
+});
+
+test("filterRows: filters by partial match", () => {
+  const rows = [
+    { Name: "John Doe", City: "NYC" },
+    { Name: "Jane Smith", City: "LA" },
+    { Name: "Bob Johnson", City: "NYC" }
+  ];
+  assertEqual(filterRows(rows, ["Name", "City"], "john").length, 2); // John Doe, Bob Johnson
+  assertEqual(filterRows(rows, ["Name", "City"], "NYC").length, 2);
+  assertEqual(filterRows(rows, ["Name", "City"], "jane").length, 1);
+});
+
+test("filterRows: case insensitive", () => {
+  const rows = [{ Name: "JOHN" }, { Name: "john" }, { Name: "Jane" }];
+  assertEqual(filterRows(rows, ["Name"], "john").length, 2);
+  assertEqual(filterRows(rows, ["Name"], "JOHN").length, 2);
+});
+
+test("filterRows: searches across all specified columns", () => {
+  const rows = [
+    { Title: "Book A", Author: "Smith" },
+    { Title: "Book B", Author: "Jones" }
+  ];
+  assertEqual(filterRows(rows, ["Title", "Author"], "smith").length, 1);
+  assertEqual(filterRows(rows, ["Title"], "smith").length, 0); // Only searching Title
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

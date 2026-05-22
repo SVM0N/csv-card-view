@@ -2,7 +2,10 @@
 
 ## What this is
 
-An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban or table UI. Built for Simon's book library (201 books exported from Notion) but general-purpose for any tabular data. The two active views are **By Genre** (kanban, default) and **Table**.
+An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, or dashboard UI. Built for Simon's book library and habit tracking. Three views:
+- **Dashboard** — date-based habit tracking with chart, streaks, and stats (auto-detected when first column is dates)
+- **By Genre** — kanban grouped by category column
+- **Table** — spreadsheet-style with resizable columns
 
 ---
 
@@ -14,11 +17,11 @@ csv-card-view/
 ├── main.js              # Compiled output — do not edit directly
 ├── styles.css           # All plugin CSS (~1300+ lines)
 ├── manifest.json        # Obsidian plugin manifest (id: csv-card-view)
-├── package.json         # deps: xlsx (SheetJS), esbuild, obsidian types
+├── package.json         # deps: xlsx (SheetJS), chart.js, esbuild, obsidian types
 ├── esbuild.config.mjs   # Build configuration
 ├── tsconfig.json        # TypeScript config
 ├── test-csv-parser.mjs  # CSV parsing tests (6 tests)
-├── test-plugin-logic.mjs # Comprehensive plugin tests (40 tests)
+├── test-plugin-logic.mjs # Comprehensive plugin tests (54 tests)
 ├── csv-card-view/       # Symlink to Obsidian plugin folder
 └── handoff.md           # This file
 ```
@@ -26,16 +29,16 @@ csv-card-view/
 **Build & Deploy:**
 ```bash
 npm install              # Install dependencies
-npm run build            # Build main.js (~895KB with SheetJS)
+npm run build            # Build main.js (~1.2MB with SheetJS + Chart.js)
 npm run build:deploy     # Build and copy to Obsidian plugin folder
 npm run dev              # Watch mode (rebuild on changes)
 ```
 
 **Testing:**
 ```bash
-npm run test             # Run plugin logic tests (40 tests)
+npm run test             # Run plugin logic tests (54 tests)
 npm run test:csv         # Run CSV parser tests (6 tests)
-npm run test:all         # Run all tests (46 total)
+npm run test:all         # Run all tests (60 total)
 npm run typecheck        # TypeScript type checking
 npm run check            # Full check: typecheck + tests + build + deploy
 ```
@@ -103,7 +106,11 @@ Everything in memory. `onLoadFile` populates, `doSave` flushes.
 
 ### View modes
 
-`type ViewMode = "kanban-genre" | "table"` — only two active modes. Switched via toolbar. Full re-render on each switch.
+`type ViewMode = "kanban-genre" | "table" | "dashboard"` — three active modes. Switched via toolbar. Full re-render on each switch.
+
+- **Dashboard** — Auto-selected when first column is detected as dates (YYYY-MM-DD format or named "date"/"day"). Shows date navigator, habit toggles, line chart (Chart.js), stats (days logged, avg/day, perfect days, streaks), and per-habit cards.
+- **By Genre** — Kanban grouped by category column with status subgroups.
+- **Table** — Spreadsheet view with resizable columns.
 
 ---
 
@@ -165,12 +172,20 @@ All options are "— use global default —" + actual file headers. Saved to `se
 | `getNotesCol()` | Per-file override → fallback chain |
 | `getStatusCol()` | Per-file override → fallback chain |
 | `getCategoryCol()` | Per-file override → fallback chain |
+| `getFilteredRows()` | Returns rows matching current search query |
+| `generateMobileFiles()` | Creates mobile dashboard markdown file |
+| `generateHabitMobileDashboard(...)` | Generates habit tracker mobile dashboard content |
+| `generateLibraryMobileDashboard()` | Generates library (books/movies) mobile dashboard content |
+| `generateGenericMobileDashboard()` | Generates generic mobile dashboard content |
 
 **`CardViewSettingTab extends PluginSettingTab`**
 Global settings UI (not per-file).
 
 **`CardViewPlugin extends Plugin`**
-Entry point. Registers view for `csv` and `xlsx`. Exposes `saveSettings()` so `XLSXCardView.saveFileCfg()` can persist without a direct plugin reference (accessed via `(app as any).plugins.plugins["csv-card-view"]?.saveSettings()`).
+Entry point. Registers view for `csv` and `xlsx`. Also registers the `csv-add` code block processor for mobile entry forms. Exposes `saveSettings()` so `XLSXCardView.saveFileCfg()` can persist without a direct plugin reference (accessed via `(app as any).plugins.plugins["csv-card-view"]?.saveSettings()`).
+
+Key methods:
+- `renderAddEntryForm(source, el, ctx)` — renders the `csv-add` code block as a form. Parses the `file:` parameter, reads headers from the CSV/XLSX, auto-detects select fields (columns with ≤15 unique values), and writes new entries directly to the file.
 
 ---
 
@@ -202,11 +217,14 @@ interface FileConfig {
   categoryColumn?: string;  // overrides getCategoryCol() fallback chain
   notesColumn?: string;     // overrides getNotesCol() fallback chain
   statusColumn?: string;    // overrides getStatusCol() fallback chain
+  habitColumns?: string[];  // columns to track as habits in dashboard view
   defaultMode?: ViewMode;   // applied on onLoadFile
 }
 ```
 
 Stored in `settings.fileConfigs[file.path]`. Accessed via `this.fileCfg` getter. Saved via `saveFileCfg(cfg)`. When a field is `undefined`, the fallback chain runs normally.
+
+**Habit columns:** If not set, auto-detected by scanning for columns with binary values (0/1, true/false, yes/no, empty). The FileConfigModal shows a checkbox grid to manually select/deselect columns.
 
 ---
 
@@ -238,6 +256,70 @@ Any column resolved by `getNotesCol()` is the notes field.
 
 ---
 
+## Dashboard view
+
+For date-based CSV/XLSX files (first column is dates in YYYY-MM-DD format).
+
+### Features
+- **Date navigator** — prev/next buttons, date dropdown, Today button
+- **Habit toggles** — clickable checkmarks for each habit column
+- **Line chart** — habits completed per day over time (Chart.js)
+- **Stats bar** — days logged, average per day, perfect days, current streak, best streak
+- **Per-habit cards** — individual stats for each habit with progress bar
+
+### Streak calculation
+Streaks **break if a day is missed**. The algorithm checks that consecutive rows are exactly 1 day apart. For current streak, it starts from today (or yesterday if today has no entry) and counts backwards only while dates are consecutive.
+
+### Date column detection
+First column is used if:
+1. Column name is "date", "day", or "datum" (case-insensitive)
+2. OR first 5 values match YYYY-MM-DD pattern
+
+### Habit column detection
+Columns with only binary values (0, 1, true, false, yes, no, or empty) are auto-detected as habits. Can be overridden via "⚙ Columns" modal with checkbox grid.
+
+### Per-habit timeline
+Click any habit card to show a detailed timeline visualization:
+- Heatmap grid showing done (green), missed (red), no entry (grey) for each day
+- Month separators for readability
+- Individual habit streak stats (done, missed, current streak, best streak)
+- Click card again or ✕ to close
+
+### Mobile dashboard (📱 Mobile button)
+Since mobile Obsidian can't open CSV/XLSX files with the plugin, use the "📱 Mobile" button to generate a mobile-friendly markdown dashboard:
+
+- Creates `<filename> - Mobile.md` in the same folder as the CSV/XLSX
+- Uses **Dataview** to query the CSV file directly via `dv.io.csv()`
+- Includes a `csv-add` code block for adding new entries from mobile
+- Requires Dataview plugin with DataviewJS enabled on mobile
+
+**Three dashboard types auto-detected:**
+1. **Habit tracker** — when first column is dates: shows recent entries grid + quick add
+2. **Library** — when category column exists: shows table + add form + entries by status
+3. **Generic** — fallback: shows recent entries table + add form
+
+### csv-add code block
+The plugin registers a `csv-add` markdown code block processor for adding entries:
+
+````markdown
+```csv-add
+file: books.xlsx
+```
+````
+
+When rendered, displays a form with all columns from the specified file. Features:
+- Auto-detects column types from existing data
+- Columns with ≤15 unique values show as dropdowns
+- "Custom" option allows entering new values
+- Writes directly to the CSV/XLSX file
+- Works on mobile (entries added on phone sync via iCloud/Obsidian Sync)
+
+File path can be:
+- Relative to the current note: `file: books.xlsx`
+- Absolute vault path: `file: Library/books.xlsx`
+
+---
+
 ## Kanban by Genre
 
 - Genres from splitting Category column on `,` — multi-genre entries appear in multiple columns
@@ -260,7 +342,7 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 
 - [ ] **fileConfigs key doesn't follow renames** — if a file is moved or renamed, its config entry becomes orphaned. Fix: hook into Obsidian's `vault.on("rename", ...)` event in `onload()` to migrate the key.
 
-- [ ] **Search/filter** — no filtering by title, author, or any field value
+- [x] **Search/filter** — search bar in kanban and table views filters entries by any column value
 
 - [ ] **Sort controls** — no column sorting in either view
 
@@ -268,7 +350,9 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 
 - [ ] **Column widths not in the file** — widths saved in `data.json`, not the xlsx itself, so they don't travel if the file is opened in a different vault
 
-- [ ] **Mobile** — resize handles don't work on touch; kanban horizontal scroll untested on iOS
+- [ ] **Mobile file opening** — On iOS/Android, tapping a CSV or XLSX file opens the system share dialog instead of the plugin. This is an Obsidian mobile limitation — custom views for binary/non-markdown files aren't fully supported. Workaround: none currently; files must be viewed/edited on desktop.
+
+- [ ] **Mobile UI** — resize handles don't work on touch; kanban horizontal scroll may be awkward on narrow screens
 
 - [ ] **Kanban per-column "+ Add"** — no per-column add button in kanban-genre; the toolbar "+ Add" opens the modal but doesn't pre-fill the genre/category
 
@@ -319,6 +403,43 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 | `.csv-expander-editor` | Modal | Textarea editor view (toggled via `display`) |
 | `.csv-expander-textarea` | Modal | Raw markdown textarea |
 | `.csv-expander-footer` | Modal | Cancel + Save & close buttons |
+| `.csv-dashboard` | Dashboard | Root container with max-width |
+| `.csv-dash-nav` | Dashboard | Date navigator bar |
+| `.csv-dash-nav-btn` | Dashboard | Prev/next arrow buttons |
+| `.csv-dash-date-select` | Dashboard | Date dropdown |
+| `.csv-dash-today-badge` | Dashboard | "Today" indicator pill |
+| `.csv-dash-today-btn` | Dashboard | "Today" quick nav button |
+| `.csv-dash-habits` | Dashboard | Habit toggles section |
+| `.csv-dash-habits-grid` | Dashboard | Grid of habit toggle buttons |
+| `.csv-dash-habit` | Dashboard | Single habit toggle; `.checked` variant |
+| `.csv-dash-habit-check` | Dashboard | Clickable ○/● indicator |
+| `.csv-dash-chart-section` | Dashboard | Chart container |
+| `.csv-dash-stats-bar` | Dashboard | Stats summary row |
+| `.csv-dash-cards-grid` | Dashboard | Per-habit stat cards grid |
+| `.csv-dash-habit-card` | Dashboard | Individual habit stat card |
+| `.csv-dash-habit-progress` | Dashboard | Progress bar container |
+| `.csv-modal-checkbox-grid` | Modal | Habit column selector grid |
+| `.csv-modal-checkbox-label` | Modal | Checkbox + label; `.auto-detected` variant |
+| `.csv-dash-timeline-section` | Dashboard | Per-habit timeline container |
+| `.csv-dash-timeline-grid` | Dashboard | Heatmap grid of day cells |
+| `.csv-dash-timeline-cell` | Dashboard | Single day cell; `.done`, `.missed`, `.no-entry` |
+| `.csv-dash-timeline-month` | Dashboard | Month label in timeline |
+| `.csv-dash-habit-card-header` | Dashboard | Icon + name row in habit card |
+| `.csv-dash-habit-icon` | Dashboard | Emoji icon for habit |
+| `.csv-dash-habit-years` | Dashboard | Year badges (2024 · 2025 · 2026) |
+| `.csv-search-wrap` | Toolbar | Search bar container |
+| `.csv-search-input` | Toolbar | Search input field |
+| `.csv-search-clear` | Toolbar | Clear search button (×) |
+| `.csv-search-results` | Content | "Found X of Y entries" message |
+| `.csv-add-form` | Code block | Mobile add entry form container |
+| `.csv-add-title` | Code block | Form title |
+| `.csv-add-field` | Code block | Field wrapper (label + input) |
+| `.csv-add-label` | Code block | Field label |
+| `.csv-add-input` | Code block | Text input |
+| `.csv-add-select` | Code block | Dropdown select |
+| `.csv-add-custom-input` | Code block | Custom value input (hidden by default) |
+| `.csv-add-submit` | Code block | Submit button |
+| `.csv-add-error` | Code block | Error message styling |
 
 Status color variants: `.status-{slug}` where slug = value lowercased, spaces → `-`. Presets: `finished`/`read` → green, `in-progress`/`reading` → blue, `not-started`/`to-read` → grey, `dropped` → red.
 
@@ -338,12 +459,16 @@ npm run deploy           # Copy built files to Obsidian plugin folder
 
 The `csv-card-view/` symlink points to the Obsidian plugin folder, so `npm run deploy` (or `npm run build:deploy`) updates the plugin in place. Reload Obsidian (Cmd+R) to pick up changes.
 
-**Test suite (46 tests):**
+**Test suite (60 tests):**
 - Filename sanitization (illegal chars, whitespace, truncation, unicode)
 - CSV parsing (CRLF, quotes, escaping, long fields, edge cases)
 - Column resolution (case-insensitive matching, fallback chains)
 - CSV round-trip serialization
 - Edge cases (empty input, malformed data, special characters)
+- Title case transformation
+- Binary column detection (0/1, true/false, yes/no)
+- Date column detection (by name and value pattern)
+- Search filtering (partial match, case-insensitive, multi-column)
 
 **Manual test checklist:**
 - Open `books.xlsx` → opens in By Genre view
