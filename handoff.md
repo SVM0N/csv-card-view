@@ -21,7 +21,7 @@ csv-card-view/
 ├── esbuild.config.mjs   # Build configuration
 ├── tsconfig.json        # TypeScript config
 ├── test-csv-parser.mjs  # CSV parsing tests (6 tests)
-├── test-plugin-logic.mjs # Comprehensive plugin tests (54 tests)
+├── test-plugin-logic.mjs # Comprehensive plugin tests (60 tests)
 ├── csv-card-view/       # Symlink to Obsidian plugin folder
 └── handoff.md           # This file
 ```
@@ -36,9 +36,9 @@ npm run dev              # Watch mode (rebuild on changes)
 
 **Testing:**
 ```bash
-npm run test             # Run plugin logic tests (54 tests)
+npm run test             # Run plugin logic tests (60 tests)
 npm run test:csv         # Run CSV parser tests (6 tests)
-npm run test:all         # Run all tests (60 total)
+npm run test:all         # Run all tests (66 total)
 npm run typecheck        # TypeScript type checking
 npm run check            # Full check: typecheck + tests + build + deploy
 ```
@@ -381,17 +381,30 @@ src/view/
 
 - [x] **Sort controls** — added sort toggle (↓ Newest / ↑ Oldest) in table view for files with date columns. Setting persisted per-file via `sortNewestFirst` in FileConfig.
 
-### Mobile dashboard improvements (in progress)
+### Mobile dashboard improvements (completed ✓)
 
-- [ ] **Remove page title** — the `# filename - Mobile` title is redundant since Obsidian shows the filename in the tab. Remove it from generated dashboard.
+- [x] **Remove page title** — removed the `# filename - Mobile` title from generated dashboard.
 
-- [ ] **Auto-refresh after add** — after submitting the csv-add form, the Recent Entries dataview table doesn't update. Need to trigger a page refresh or force Dataview to re-execute.
+- [x] **Auto-refresh after add** — after submitting the csv-add form, the note is reopened to force Dataview to re-execute.
 
-- [ ] **Manual refresh button** — add a "🔄 Refresh" button above Recent Entries that forces a page reload to update Dataview results.
+- [x] **Manual refresh button** — added `csv-refresh` code block processor that renders a "🔄 Refresh" button to force Dataview refresh.
 
-- [ ] **Fix column word breaks** — habit column headers like "Journal" break mid-word ("Journa-l"). Add `white-space: nowrap` to table headers in the dataviewjs code.
+- [x] **Fix column word breaks** — added `white-space: nowrap` to table headers via `dv.container.style` in dataviewjs code.
 
-- [ ] **CSV-XLSX sync on entry operations** — when adding/updating entries via mobile, the CSV helper file syncs with XLSX. Ensure deleting entries also syncs and doesn't create empty rows.
+- [x] **CSV-XLSX sync on entry operations** — CSV helper now syncs on both mobile add/update AND desktop edits via `doSave()`. CSV file is in `_csv_helpers/` folder (non-hidden, using `vault.adapter` API for reliable file operations).
+
+### CSV Helper Architecture
+
+**Source of truth:** XLSX is always the source of truth. CSV is a one-way mirror for Dataview.
+
+**Folder:** `<xlsx-folder>/_csv_helpers/<filename>.csv` — Uses underscore prefix instead of dot to avoid Obsidian's hidden folder indexing issues.
+
+**Sync points:**
+1. **Mobile add form (`csv-add`)** — reads/writes XLSX directly, then syncs to CSV
+2. **Desktop edits (`doSave()`)** — writes XLSX, then syncs to CSV if helper exists
+3. **Duplicate detection** — re-reads file before each submit to avoid stale data issues
+
+**File operations:** Uses `vault.adapter.exists/mkdir/write` instead of `vault.getAbstractFileByPath/createFolder/create` because Obsidian doesn't index `_csv_helpers` folder in its file cache.
 
 - [ ] **Multi-value select for Category** — the picker sets a single string. Proper multi-select with individual chips would be better (comma-split for kanban columns already works on the read side)
 
@@ -506,7 +519,7 @@ npm run deploy           # Copy built files to Obsidian plugin folder
 
 The `csv-card-view/` symlink points to the Obsidian plugin folder, so `npm run deploy` (or `npm run build:deploy`) updates the plugin in place. Reload Obsidian (Cmd+R) to pick up changes.
 
-**Test suite (60 tests):**
+**Test suite (66 tests):**
 - Filename sanitization (illegal chars, whitespace, truncation, unicode)
 - CSV parsing (CRLF, quotes, escaping, long fields, edge cases)
 - Column resolution (case-insensitive matching, fallback chains)
@@ -516,6 +529,9 @@ The `csv-card-view/` symlink points to the Obsidian plugin folder, so `npm run d
 - Binary column detection (0/1, true/false, yes/no)
 - Date column detection (by name and value pattern)
 - Search filtering (partial match, case-insensitive, multi-column)
+- Duplicate entry detection (findExistingRowByDate)
+- Merge habit entry logic (mergeHabitEntry)
+- Sort order (sortByDate newest/oldest first)
 
 **Manual test checklist:**
 - Open `books.xlsx` → opens in By Genre view
