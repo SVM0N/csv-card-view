@@ -835,7 +835,6 @@ export class XLSXCardView extends FileView {
       const contentArea = this.contentEl.querySelector(".csv-content-area") as HTMLElement | null;
       const scrollLeft = contentArea?.scrollLeft ?? 0;
       const scrollTop = contentArea?.scrollTop ?? 0;
-      console.log("[SCROLL DEBUG] openInlineEditor - saved position:", { scrollLeft, scrollTop, contentArea: !!contentArea });
 
       notesPreviewEl.style.display = "none";
       notesEditorEl.style.display = "block";
@@ -847,17 +846,12 @@ export class XLSXCardView extends FileView {
       ta.addEventListener("mousedown", e => e.stopPropagation());
       ta.addEventListener("input", () => { ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; });
       ta.addEventListener("keydown", e => { if (e.key==="Escape") closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop); });
-      ta.addEventListener("blur", () => {
-        console.log("[SCROLL DEBUG] blur event - current scroll:", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
-        closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop);
-      });
+      ta.addEventListener("blur", () => closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop));
       // Use preventScroll to avoid browser auto-scrolling the content area
       ta.focus({ preventScroll: true });
-      console.log("[SCROLL DEBUG] after focus (preventScroll) - scroll position:", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
     };
 
     const closeInlineEditor = (newVal: string, contentArea: HTMLElement | null, scrollLeft: number, scrollTop: number) => {
-      console.log("[SCROLL DEBUG] closeInlineEditor - restoring to:", { scrollLeft, scrollTop });
       if (notesCol) { row[notesCol]=newVal; this.scheduleSave(); }
       notesEditorEl.style.display = "none";
       notesPreviewEl.style.display = "";
@@ -871,30 +865,20 @@ export class XLSXCardView extends FileView {
       }
       // Restore scroll position after the DOM settles
       // Use multiple approaches to ensure scroll is restored even if browser does post-blur adjustments
-      console.log("[SCROLL DEBUG] before restore - current scroll:", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
       if (contentArea) {
-        // Immediate restore
         contentArea.scrollLeft = scrollLeft;
         contentArea.scrollTop = scrollTop;
-        // rAF restore (catches most layout reflows)
         requestAnimationFrame(() => {
-          console.log("[SCROLL DEBUG] rAF1 (before set):", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
           contentArea.scrollLeft = scrollLeft;
           contentArea.scrollTop = scrollTop;
-          // Double rAF for stubborn cases
           requestAnimationFrame(() => {
-            console.log("[SCROLL DEBUG] rAF2 (before set):", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
             contentArea.scrollLeft = scrollLeft;
             contentArea.scrollTop = scrollTop;
-            console.log("[SCROLL DEBUG] rAF2 (after set):", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
           });
         });
-        // Also try after a small timeout to catch any delayed scroll adjustments
         setTimeout(() => {
-          console.log("[SCROLL DEBUG] setTimeout 50ms (before set):", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
           contentArea.scrollLeft = scrollLeft;
           contentArea.scrollTop = scrollTop;
-          console.log("[SCROLL DEBUG] setTimeout 50ms (after set):", { scrollLeft: contentArea?.scrollLeft, scrollTop: contentArea?.scrollTop });
         }, 50);
       }
     };
@@ -903,7 +887,7 @@ export class XLSXCardView extends FileView {
 
     // Buttons (visible on hover)
     const btnRow = card.createDiv({cls:"csv-kanban-card-btns"});
-    if (notesCol !== undefined) {
+    if (notesCol) {
       btnRow.createEl("button",{cls:"csv-kanban-notes-btn", text:"✏️ Edit note"})
         .addEventListener("click", e => { e.stopPropagation(); openInlineEditor(); });
       btnRow.createEl("button",{cls:"csv-kanban-notes-btn", text:"⤢ Expand"})

@@ -34404,7 +34404,6 @@ var XLSXCardView = class extends import_obsidian.FileView {
       const contentArea = this.contentEl.querySelector(".csv-content-area");
       const scrollLeft = (_a2 = contentArea == null ? void 0 : contentArea.scrollLeft) != null ? _a2 : 0;
       const scrollTop = (_b = contentArea == null ? void 0 : contentArea.scrollTop) != null ? _b : 0;
-      console.log("[SCROLL DEBUG] openInlineEditor - saved position:", { scrollLeft, scrollTop, contentArea: !!contentArea });
       notesPreviewEl.style.display = "none";
       notesEditorEl.style.display = "block";
       notesEditorEl.empty();
@@ -34421,15 +34420,10 @@ var XLSXCardView = class extends import_obsidian.FileView {
         if (e.key === "Escape")
           closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop);
       });
-      ta.addEventListener("blur", () => {
-        console.log("[SCROLL DEBUG] blur event - current scroll:", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
-        closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop);
-      });
+      ta.addEventListener("blur", () => closeInlineEditor(ta.value, contentArea, scrollLeft, scrollTop));
       ta.focus({ preventScroll: true });
-      console.log("[SCROLL DEBUG] after focus (preventScroll) - scroll position:", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
     };
     const closeInlineEditor = (newVal, contentArea, scrollLeft, scrollTop) => {
-      console.log("[SCROLL DEBUG] closeInlineEditor - restoring to:", { scrollLeft, scrollTop });
       if (notesCol) {
         row[notesCol] = newVal;
         this.scheduleSave();
@@ -34444,26 +34438,20 @@ var XLSXCardView = class extends import_obsidian.FileView {
         notesPreviewEl.addClass("csv-kanban-notes-preview--empty");
         notesPreviewEl.setText("");
       }
-      console.log("[SCROLL DEBUG] before restore - current scroll:", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
       if (contentArea) {
         contentArea.scrollLeft = scrollLeft;
         contentArea.scrollTop = scrollTop;
         requestAnimationFrame(() => {
-          console.log("[SCROLL DEBUG] rAF1 (before set):", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
           contentArea.scrollLeft = scrollLeft;
           contentArea.scrollTop = scrollTop;
           requestAnimationFrame(() => {
-            console.log("[SCROLL DEBUG] rAF2 (before set):", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
             contentArea.scrollLeft = scrollLeft;
             contentArea.scrollTop = scrollTop;
-            console.log("[SCROLL DEBUG] rAF2 (after set):", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
           });
         });
         setTimeout(() => {
-          console.log("[SCROLL DEBUG] setTimeout 50ms (before set):", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
           contentArea.scrollLeft = scrollLeft;
           contentArea.scrollTop = scrollTop;
-          console.log("[SCROLL DEBUG] setTimeout 50ms (after set):", { scrollLeft: contentArea == null ? void 0 : contentArea.scrollLeft, scrollTop: contentArea == null ? void 0 : contentArea.scrollTop });
         }, 50);
       }
     };
@@ -34472,7 +34460,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
       openInlineEditor();
     });
     const btnRow = card.createDiv({ cls: "csv-kanban-card-btns" });
-    if (notesCol !== void 0) {
+    if (notesCol) {
       btnRow.createEl("button", { cls: "csv-kanban-notes-btn", text: "\u270F\uFE0F Edit note" }).addEventListener("click", (e) => {
         e.stopPropagation();
         openInlineEditor();
