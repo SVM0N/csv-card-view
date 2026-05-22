@@ -110,9 +110,10 @@ Everything in memory. `onLoadFile` populates, `doSave` flushes.
 
 ### View modes
 
-`type ViewMode = "kanban-genre" | "table" | "dashboard"` — three active modes. Switched via toolbar. Full re-render on each switch.
+`type ViewMode = "kanban-genre" | "table" | "dashboard" | "library"` — four active modes. Switched via toolbar. Full re-render on each switch.
 
 - **Dashboard** — Auto-selected when first column is detected as dates (YYYY-MM-DD format or named "date"/"day"). Shows date navigator, habit toggles, line chart (Chart.js), stats (days logged, avg/day, perfect days, streaks), and per-habit cards.
+- **Library** — Grid view with filters (status, genre, search), collapsible genre sections, cards with green dot for done items, ratings, tags. Like the Dataview Movies Dashboard.
 - **By Genre** — Kanban grouped by category column with status subgroups.
 - **Table** — Spreadsheet view with resizable columns.
 
@@ -380,17 +381,24 @@ src/view/
 
 - [x] **Sort controls** — added sort toggle (↓ Newest / ↑ Oldest) in table view for files with date columns. Setting persisted per-file via `sortNewestFirst` in FileConfig.
 
+### Desktop Library view (completed ✓)
+
+- [x] **Library view mode** — new view for files with category columns, shows grid of cards grouped by genre
+- [x] **Filters bar** — status dropdown (All/Done/In Progress/Not Started), genre dropdown, search by title
+- [x] **Collapsible sections** — genre headers with ▶ arrow, entry count, click to expand/collapse
+- [x] **Card design** — green dot for watched/read items, title, author/year, star ratings, tags
+- [x] **Sorting** — in-progress items first, then alphabetically by title
+
 ### Mobile dashboard improvements (completed ✓)
 
-- [x] **Remove page title** — removed the `# filename - Mobile` title from generated dashboard.
-
-- [x] **Auto-refresh after add** — after submitting the csv-add form, the note is reopened to force Dataview to re-execute.
-
-- [x] **Manual refresh button** — added `csv-refresh` code block processor that renders a "🔄 Refresh" button to force Dataview refresh.
-
-- [x] **Fix column word breaks** — added `white-space: nowrap` to table headers via `dv.container.style` in dataviewjs code.
-
-- [x] **CSV-XLSX sync on entry operations** — CSV helper now syncs on both mobile add/update AND desktop edits via `doSave()`. CSV file is in `_csv_helpers/` folder (non-hidden, using `vault.adapter` API for reliable file operations).
+- [x] **Minimalist Apple-esque design** — removed gray fills, transparent backgrounds, clean typography
+- [x] **View toggle** — Recent/All toggle for entries, Kanban/Table toggle for library files
+- [x] **Kanban view in mobile** — library mobile dashboard has collapsible genre sections with cards
+- [x] **Form styling** — 95% width, larger inputs, clean checkboxes, subtle focus states
+- [x] **Refresh button** — minimal `↻ refresh` button, no background
+- [x] **Dataview note moved** — "Requires Dataview" now at bottom as subtle footer
+- [x] **Auto-refresh after add** — note is reopened to force Dataview to re-execute
+- [x] **CSV-XLSX sync** — syncs on both mobile add/update AND desktop edits
 
 ### CSV Helper Architecture
 
@@ -405,17 +413,27 @@ src/view/
 
 **File operations:** Uses `vault.adapter.exists/mkdir/write` instead of `vault.getAbstractFileByPath/createFolder/create` because Obsidian doesn't index `_csv_helpers` folder in its file cache.
 
+### Mobile dashboard generation
+
+- [ ] **Mobile folder structure** — instead of generating `filename - Mobile.md` in the same folder, create a `mobile/` subfolder with `filename.md`. Cleaner organization, avoids cluttering the main folder.
+
+- [ ] **Mobile file opening** — On iOS/Android, tapping a CSV or XLSX file opens the system share dialog instead of the plugin. This is an Obsidian mobile limitation — custom views for binary/non-markdown files aren't fully supported. Workaround: use the generated mobile dashboard.
+
+### Desktop improvements
+
 - [ ] **Multi-value select for Category** — the picker sets a single string. Proper multi-select with individual chips would be better (comma-split for kanban columns already works on the read side)
 
 - [ ] **Column widths not in the file** — widths saved in `data.json`, not the xlsx itself, so they don't travel if the file is opened in a different vault
 
-- [ ] **Mobile file opening** — On iOS/Android, tapping a CSV or XLSX file opens the system share dialog instead of the plugin. This is an Obsidian mobile limitation — custom views for binary/non-markdown files aren't fully supported. Workaround: none currently; files must be viewed/edited on desktop.
-
-- [ ] **Mobile UI** — resize handles don't work on touch; kanban horizontal scroll may be awkward on narrow screens
-
 - [ ] **Kanban per-column "+ Add"** — no per-column add button in kanban-genre; the toolbar "+ Add" opens the modal but doesn't pre-fill the genre/category
 
+- [ ] **Library view enhancements** — add rating filter, theme/tag filter, sort options (by title, year, rating)
+
+### Technical debt
+
 - [ ] **saveFileCfg coupling** — `XLSXCardView.saveFileCfg()` accesses the plugin via `(app as any).plugins.plugins["csv-card-view"]`. This works but is fragile if the plugin ID changes. Better: pass a `saveSettings` callback into the view constructor.
+
+- [ ] **Mobile UI polish** — resize handles don't work on touch; kanban horizontal scroll may be awkward on narrow screens
 
 ---
 
@@ -499,6 +517,20 @@ src/view/
 | `.csv-add-custom-input` | Code block | Custom value input (hidden by default) |
 | `.csv-add-submit` | Code block | Submit button |
 | `.csv-add-error` | Code block | Error message styling |
+| `.csv-library-filters` | Library | Filters bar (flex, gap) |
+| `.csv-library-filter-select` | Library | Status/genre dropdown |
+| `.csv-library-search` | Library | Search input |
+| `.csv-library-sections` | Library | Container for genre sections |
+| `.csv-library-section` | Library | Collapsible `<details>` element |
+| `.csv-library-section-header` | Library | Genre header with arrow + count |
+| `.csv-library-grid` | Library | Card grid (auto-fill columns) |
+| `.csv-library-card` | Library | Individual entry card |
+| `.csv-library-card-title` | Library | Title with green dot |
+| `.csv-library-done-dot` | Library | Green dot for watched/read |
+| `.csv-library-card-meta` | Library | Author/year text |
+| `.csv-library-card-rating` | Library | Star rating display |
+| `.csv-library-card-tags` | Library | Tags container |
+| `.csv-library-card-tag` | Library | Individual tag chip |
 
 Status color variants: `.status-{slug}` where slug = value lowercased, spaces → `-`. Presets: `finished`/`read` → green, `in-progress`/`reading` → blue, `not-started`/`to-read` → grey, `dropped` → red.
 
