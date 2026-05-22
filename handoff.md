@@ -10,23 +10,39 @@ An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban or table UI. 
 
 ```
 csv-card-view/
-├── main.ts          # Full plugin source (TypeScript) — edit this
-├── main.js          # Compiled output — do not edit directly
-├── styles.css       # All plugin CSS (~1300+ lines)
-├── manifest.json    # Obsidian plugin manifest (id: csv-card-view)
-├── package.json     # deps: xlsx (SheetJS), esbuild, obsidian types
-├── esbuild.config.mjs
-├── tsconfig.json
-└── handoff.md       # This file
+├── main.ts              # Full plugin source (TypeScript) — edit this
+├── main.js              # Compiled output — do not edit directly
+├── styles.css           # All plugin CSS (~1300+ lines)
+├── manifest.json        # Obsidian plugin manifest (id: csv-card-view)
+├── package.json         # deps: xlsx (SheetJS), esbuild, obsidian types
+├── esbuild.config.mjs   # Build configuration
+├── tsconfig.json        # TypeScript config
+├── test-csv-parser.mjs  # CSV parsing tests (6 tests)
+├── test-plugin-logic.mjs # Comprehensive plugin tests (40 tests)
+├── csv-card-view/       # Symlink to Obsidian plugin folder
+└── handoff.md           # This file
 ```
 
-**Build:**
+**Build & Deploy:**
 ```bash
-npm run build   # production → main.js (~440KB, SheetJS bundled)
-npm run dev     # watch mode
+npm install              # Install dependencies
+npm run build            # Build main.js (~895KB with SheetJS)
+npm run build:deploy     # Build and copy to Obsidian plugin folder
+npm run dev              # Watch mode (rebuild on changes)
+```
+
+**Testing:**
+```bash
+npm run test             # Run plugin logic tests (40 tests)
+npm run test:csv         # Run CSV parser tests (6 tests)
+npm run test:all         # Run all tests (46 total)
+npm run typecheck        # TypeScript type checking
+npm run check            # Full check: typecheck + tests + build + deploy
 ```
 
 **Install in Obsidian:** copy `main.js`, `manifest.json`, `styles.css` into `<vault>/.obsidian/plugins/csv-card-view/` and enable in Community plugins. Works on iOS/Android.
+
+**Local development:** The `csv-card-view/` folder is a symlink to the Obsidian plugin directory. Running `npm run build:deploy` copies all necessary files automatically.
 
 ---
 
@@ -214,7 +230,7 @@ Stored in `settings.fileConfigs[file.path]`. Accessed via `this.fileCfg` getter.
 ### Inline notes (in the xlsx cell)
 Any column resolved by `getNotesCol()` is the notes field.
 
-- **Kanban card:** plain-text preview (120 chars, markdown stripped). "✏️ Edit note" opens textarea inline inside the card. "⤢ Expand" opens `NoteExpanderModal`. Scroll position of `.csv-content-area` is saved before opening and restored via `requestAnimationFrame` on close.
+- **Kanban card:** plain-text preview (120 chars, markdown stripped). "✏️ Edit note" opens textarea inline inside the card. "⤢ Expand" opens `NoteExpanderModal`. Scroll position of `.csv-content-area` is saved before opening and restored via multi-layer approach (immediate + double rAF + setTimeout) on close. The textarea focus uses `preventScroll: true` to avoid browser auto-scrolling.
 - **Table:** 2-line plain-text preview. Clicking cell or "⤢" button both open `NoteExpanderModal` — no inline editing in table view.
 
 ### Sidecar notes file
@@ -313,11 +329,21 @@ Status color variants: `.status-{slug}` where slug = value lowercased, spaces �
 ```bash
 cd csv-card-view
 npm install
-npm run dev
+npm run check            # Full validation before committing
 
-# Copy to test vault on each build:
-cp main.js ~/path/to/vault/.obsidian/plugins/csv-card-view/main.js
+# Or for iterative development:
+npm run dev              # Watch mode — rebuilds on file changes
+npm run deploy           # Copy built files to Obsidian plugin folder
 ```
+
+The `csv-card-view/` symlink points to the Obsidian plugin folder, so `npm run deploy` (or `npm run build:deploy`) updates the plugin in place. Reload Obsidian (Cmd+R) to pick up changes.
+
+**Test suite (46 tests):**
+- Filename sanitization (illegal chars, whitespace, truncation, unicode)
+- CSV parsing (CRLF, quotes, escaping, long fields, edge cases)
+- Column resolution (case-insensitive matching, fallback chains)
+- CSV round-trip serialization
+- Edge cases (empty input, malformed data, special characters)
 
 **Manual test checklist:**
 - Open `books.xlsx` → opens in By Genre view
