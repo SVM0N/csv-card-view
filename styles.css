@@ -1,0 +1,1415 @@
+/* ─── Root & Theme Variables ──────────────────────────────────────────────── */
+
+.csv-card-view-root {
+  --csv-bg: var(--background-primary);
+  --csv-surface: var(--background-secondary);
+  --csv-surface-2: var(--background-modifier-border);
+  --csv-border: var(--background-modifier-border);
+  --csv-text: var(--text-normal);
+  --csv-text-muted: var(--text-muted);
+  --csv-text-faint: var(--text-faint);
+  --csv-accent: var(--interactive-accent);
+  --csv-accent-hover: var(--interactive-accent-hover);
+  --csv-radius: 8px;
+  --csv-radius-sm: 5px;
+  --csv-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px var(--csv-border);
+  --csv-shadow-hover: 0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px var(--csv-accent);
+  --csv-font-mono: var(--font-monospace);
+  
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--csv-bg);
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.csv-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--csv-border);
+  background: var(--csv-surface);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.csv-toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--csv-text);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.csv-row-count {
+  font-size: 11px;
+  color: var(--csv-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.csv-mode-group {
+  display: flex;
+  gap: 2px;
+  background: var(--csv-surface-2);
+  padding: 2px;
+  border-radius: var(--csv-radius-sm);
+}
+
+.csv-mode-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--csv-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+
+.csv-mode-btn:hover {
+  color: var(--csv-text);
+  background: var(--csv-surface);
+}
+
+.csv-mode-btn.active {
+  background: var(--csv-bg);
+  color: var(--csv-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.csv-add-btn {
+  padding: 5px 12px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 12px;
+  border: none;
+  background: var(--csv-accent);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s ease;
+  letter-spacing: 0.02em;
+}
+
+.csv-add-btn:hover {
+  background: var(--csv-accent-hover);
+}
+
+/* ─── Content area ────────────────────────────────────────────────────────── */
+
+.csv-content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.csv-empty-state {
+  color: var(--csv-text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+/* ─── Grid View ───────────────────────────────────────────────────────────── */
+
+.csv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.csv-card {
+  background: var(--csv-surface);
+  border-radius: var(--csv-radius);
+  box-shadow: var(--csv-shadow);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+
+.csv-card:hover {
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1), 0 0 0 1px var(--csv-border);
+}
+
+.csv-card.expanded {
+  box-shadow: var(--csv-shadow-hover);
+  grid-column: span 1;
+}
+
+/* Card header */
+.csv-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.csv-card-header:hover {
+  background: var(--background-modifier-hover);
+}
+
+.csv-card-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.csv-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--csv-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.csv-card-subtitle {
+  font-size: 12px;
+  color: var(--csv-text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-expand-btn {
+  font-size: 10px;
+  color: var(--csv-text-faint);
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.csv-expand-btn:hover {
+  color: var(--csv-text-muted);
+}
+
+/* Status badge */
+.csv-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  background: var(--csv-surface-2);
+  color: var(--csv-text-muted);
+}
+
+/* Status badge color variants - sensible defaults */
+.csv-status-badge.status-read,
+.csv-status-badge.status-done,
+.csv-status-badge.status-watched,
+.csv-status-badge.status-finished,
+.csv-status-badge.status-completed {
+  background: rgba(52, 168, 83, 0.15);
+  color: #34a853;
+}
+
+.csv-status-badge.status-reading,
+.csv-status-badge.status-watching,
+.csv-status-badge.status-in-progress,
+.csv-status-badge.status-ongoing {
+  background: rgba(66, 133, 244, 0.15);
+  color: #4285f4;
+}
+
+.csv-status-badge.status-to-read,
+.csv-status-badge.status-to-watch,
+.csv-status-badge.status-want,
+.csv-status-badge.status-backlog,
+.csv-status-badge.status-queued {
+  background: rgba(251, 188, 4, 0.15);
+  color: #e8a900;
+}
+
+.csv-status-badge.status-dropped,
+.csv-status-badge.status-abandoned,
+.csv-status-badge.status-dnf {
+  background: rgba(234, 67, 53, 0.12);
+  color: #ea4335;
+}
+
+/* Card body */
+.csv-card-body {
+  border-top: 1px solid var(--csv-border);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.csv-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.csv-field-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.csv-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.csv-field-value {
+  font-size: 13px;
+  color: var(--csv-text);
+  flex: 1;
+  cursor: text;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  transition: background 0.15s;
+  word-break: break-word;
+}
+
+.csv-field-value:hover {
+  background: var(--background-modifier-hover);
+}
+
+.csv-inline-input {
+  width: 100%;
+  font-size: 13px;
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--csv-accent);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--csv-text);
+  outline: none;
+}
+
+/* Notes section */
+.csv-notes-section {
+  border-top: 1px solid var(--csv-border);
+  padding-top: 12px;
+}
+
+.csv-notes-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+  margin-bottom: 8px;
+}
+
+.csv-notes-content {
+  font-size: 13px;
+  color: var(--csv-text);
+  cursor: text;
+  border-radius: var(--csv-radius-sm);
+  padding: 8px;
+  background: var(--background-primary);
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+  min-height: 40px;
+  line-height: 1.6;
+}
+
+.csv-notes-content:hover {
+  border-color: var(--csv-border);
+}
+
+/* Pass markdown rendered styles through */
+.csv-notes-content p { margin: 0 0 8px; }
+.csv-notes-content p:last-child { margin-bottom: 0; }
+.csv-notes-content ul, .csv-notes-content ol { margin: 4px 0 8px 18px; }
+.csv-notes-content li { margin: 2px 0; }
+.csv-notes-content h1,.csv-notes-content h2,.csv-notes-content h3 { margin: 10px 0 4px; }
+.csv-notes-content code { font-size: 12px; }
+.csv-notes-content blockquote { border-left: 3px solid var(--csv-accent); padding-left: 10px; margin: 6px 0; color: var(--csv-text-muted); }
+
+.csv-notes-empty {
+  color: var(--csv-text-faint);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.csv-notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  font-size: 13px;
+  font-family: var(--csv-font-mono);
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--csv-accent);
+  border-radius: var(--csv-radius-sm);
+  padding: 8px;
+  color: var(--csv-text);
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* ─── Kanban View ─────────────────────────────────────────────────────────── */
+
+.csv-kanban-board {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-height: 100%;
+  overflow-x: auto;
+  padding-bottom: 20px;
+}
+
+.csv-kanban-col {
+  background: var(--csv-surface);
+  border-radius: var(--csv-radius);
+  min-width: 260px;
+  max-width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--csv-shadow);
+}
+
+.csv-kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--csv-border);
+}
+
+.csv-kanban-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--csv-text);
+}
+
+.csv-kanban-col-count {
+  font-size: 11px;
+  color: var(--csv-text-faint);
+  background: var(--csv-surface-2);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.csv-kanban-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  flex: 1;
+}
+
+.csv-kanban-card {
+  background: var(--csv-bg);
+  border-radius: var(--csv-radius-sm);
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px var(--csv-border);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.csv-kanban-card:hover {
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12), 0 0 0 1px var(--csv-accent);
+  transform: translateY(-1px);
+}
+
+.csv-kanban-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--csv-text);
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+
+.csv-kanban-card-sub {
+  font-size: 11px;
+  color: var(--csv-text-muted);
+  margin-bottom: 8px;
+}
+
+.csv-kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.csv-kanban-chip {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--csv-surface);
+  border: 1px solid var(--csv-border);
+  white-space: nowrap;
+}
+
+.csv-chip-label {
+  color: var(--csv-text-faint);
+}
+
+.csv-chip-value {
+  color: var(--csv-text-muted);
+  font-weight: 500;
+}
+
+.csv-kanban-notes-indicator {
+  font-size: 10px;
+  color: var(--csv-text-faint);
+  margin-top: 8px;
+  letter-spacing: 0.02em;
+}
+
+.csv-kanban-add-card {
+  margin: 0 12px 12px;
+  padding: 7px;
+  border: 1px dashed var(--csv-border);
+  border-radius: var(--csv-radius-sm);
+  background: transparent;
+  color: var(--csv-text-faint);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  width: calc(100% - 24px);
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.csv-kanban-add-card:hover {
+  border-color: var(--csv-accent);
+  color: var(--csv-accent);
+  background: var(--background-modifier-hover);
+}
+
+/* ─── Table View ──────────────────────────────────────────────────────────── */
+
+.csv-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--csv-radius);
+  box-shadow: var(--csv-shadow);
+}
+
+.csv-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--csv-surface);
+  font-size: 13px;
+}
+
+.csv-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+  background: var(--csv-surface);
+  border-bottom: 1px solid var(--csv-border);
+  white-space: nowrap;
+}
+
+.csv-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--csv-border);
+  color: var(--csv-text);
+  vertical-align: top;
+  cursor: text;
+  max-width: 280px;
+  word-break: break-word;
+}
+
+.csv-table tr:last-child td {
+  border-bottom: none;
+}
+
+.csv-table tr:hover td {
+  background: var(--background-modifier-hover);
+}
+
+.csv-table-notes-cell {
+  color: var(--csv-text-muted) !important;
+  font-style: italic;
+  font-size: 12px !important;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-table-action {
+  width: 40px;
+  text-align: center;
+}
+
+.csv-table-del-btn {
+  border: none;
+  background: transparent;
+  color: var(--csv-text-faint);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.csv-table tr:hover .csv-table-del-btn {
+  opacity: 1;
+}
+
+.csv-table-del-btn:hover {
+  color: #ea4335;
+  background: rgba(234, 67, 53, 0.1);
+}
+
+/* ─── Notes File Button ───────────────────────────────────────────────────── */
+
+.csv-notes-file-bar {
+  padding: 10px 0 0;
+}
+
+.csv-notes-file-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.csv-notes-file-btn.new {
+  border: 1px dashed var(--csv-border);
+  background: transparent;
+  color: var(--csv-text-muted);
+}
+
+.csv-notes-file-btn.new:hover {
+  border-color: var(--csv-accent);
+  color: var(--csv-accent);
+  background: var(--background-modifier-hover);
+}
+
+.csv-notes-file-btn.exists {
+  border: 1px solid var(--csv-border);
+  background: var(--background-modifier-hover);
+  color: var(--csv-text);
+}
+
+.csv-notes-file-btn.exists:hover {
+  border-color: var(--csv-accent);
+  background: rgba(var(--interactive-accent-rgb), 0.08);
+}
+
+/* Kanban notes button (shows on hover) */
+.csv-kanban-notes-btn {
+  display: none;
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px dashed var(--csv-border);
+  background: transparent;
+  color: var(--csv-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.csv-kanban-card:hover .csv-kanban-notes-btn {
+  display: block;
+}
+
+.csv-kanban-notes-btn:hover {
+  border-color: var(--csv-accent);
+  color: var(--csv-accent);
+}
+
+/* Table notes button */
+.csv-table-notes-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  margin-right: 4px;
+}
+
+.csv-table tr:hover .csv-table-notes-btn {
+  opacity: 1;
+}
+
+.csv-table-notes-btn.exists {
+  opacity: 0.8;
+}
+
+/* ─── Genre Kanban ────────────────────────────────────────────────────────── */
+
+.csv-kanban-genre-board {
+  align-items: flex-start;
+}
+
+.csv-kanban-status-group {
+  margin-bottom: 10px;
+}
+
+.csv-kanban-status-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  display: inline-block;
+  background: var(--csv-surface-2);
+  color: var(--csv-text-muted);
+}
+
+.csv-kanban-status-label.status-finished,
+.csv-kanban-status-label.status-read {
+  background: rgba(52, 168, 83, 0.15);
+  color: #34a853;
+}
+
+.csv-kanban-status-label.status-in-progress,
+.csv-kanban-status-label.status-reading {
+  background: rgba(66, 133, 244, 0.15);
+  color: #4285f4;
+}
+
+.csv-kanban-status-label.status-not-started,
+.csv-kanban-status-label.status-to-read {
+  background: rgba(180,180,180,0.12);
+  color: var(--csv-text-faint);
+}
+
+/* ─── Resizable columns ───────────────────────────────────────────────────── */
+
+.csv-table th {
+  position: relative;
+  user-select: none;
+}
+
+.csv-col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 1;
+}
+
+.csv-col-resize-handle:hover,
+.csv-col-resize-handle:active {
+  background: var(--csv-accent);
+  opacity: 0.5;
+}
+
+/* ─── Notes multiline fix ─────────────────────────────────────────────────── */
+
+.csv-notes-content {
+  /* ensure rendered markdown paragraphs show correctly */
+  white-space: normal;
+}
+
+.csv-notes-content p {
+  margin: 0 0 0.5em;
+}
+
+.csv-notes-content p:last-child {
+  margin-bottom: 0;
+}
+
+.csv-notes-content blockquote {
+  margin: 0.4em 0;
+  padding: 4px 10px;
+  border-left: 3px solid var(--csv-accent);
+  color: var(--csv-text-muted);
+  font-style: italic;
+}
+
+.csv-notes-content blockquote p {
+  margin: 0;
+}
+
+.csv-notes-textarea {
+  min-height: 160px;
+}
+
+/* ─── Select Picker ───────────────────────────────────────────────────────── */
+
+.csv-select-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--csv-border);
+  color: var(--csv-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csv-select-chip:hover {
+  border-color: var(--csv-accent);
+  background: rgba(var(--interactive-accent-rgb, 99,102,241), 0.08);
+}
+
+.csv-select-chip.empty {
+  color: var(--csv-text-faint);
+  background: transparent;
+  border-style: dashed;
+}
+
+/* Status color tinting for status chips */
+.csv-select-chip.status-chip-finished,
+.csv-select-chip.status-chip-read {
+  background: rgba(52,168,83,0.12);
+  border-color: rgba(52,168,83,0.3);
+  color: #34a853;
+}
+.csv-select-chip.status-chip-in-progress,
+.csv-select-chip.status-chip-reading {
+  background: rgba(66,133,244,0.12);
+  border-color: rgba(66,133,244,0.3);
+  color: #4285f4;
+}
+.csv-select-chip.status-chip-not-started,
+.csv-select-chip.status-chip-to-read {
+  background: rgba(180,180,180,0.1);
+  border-color: rgba(180,180,180,0.2);
+  color: var(--csv-text-faint);
+}
+
+/* In table cells */
+td .csv-select-chip {
+  margin: 1px 0;
+}
+
+/* Inline select in kanban chips */
+.csv-chip-select {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* ─── Picker dropdown ─────────────────────────────────────────────────────── */
+
+.csv-select-picker {
+  background: var(--background-primary);
+  border: 1px solid var(--csv-border);
+  border-radius: var(--csv-radius);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.12);
+  min-width: 180px;
+  max-width: 280px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.csv-picker-search {
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--csv-border);
+  background: var(--background-modifier-form-field);
+  color: var(--csv-text);
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+}
+
+.csv-picker-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.csv-picker-item {
+  padding: 6px 10px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 12px;
+  color: var(--csv-text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.csv-picker-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.csv-picker-item.active {
+  background: rgba(var(--interactive-accent-rgb, 99,102,241), 0.12);
+  color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.csv-picker-item.csv-picker-add {
+  color: var(--csv-accent);
+  font-style: italic;
+}
+
+.csv-picker-item.csv-picker-clear {
+  color: var(--csv-text-faint);
+  font-size: 11px;
+}
+
+.csv-picker-empty {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--csv-text-faint);
+  font-style: italic;
+}
+
+/* field-row alignment for chips */
+.csv-field-row .csv-select-chip {
+  margin-top: 1px;
+}
+
+/* ─── Notes editing state ─────────────────────────────────────────────────── */
+.csv-notes-content.csv-notes-editing {
+  padding: 0;
+  border-color: var(--csv-accent);
+  background: var(--background-modifier-form-field);
+}
+
+/* ─── Kanban inline notes preview ────────────────────────────────────────── */
+
+.csv-kanban-notes-preview {
+  font-size: 11px;
+  color: var(--csv-text-muted);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.4;
+  border-left: 2px solid var(--csv-border);
+  padding-left: 7px;
+}
+
+/* Title is now the clickable nav element */
+.csv-kanban-card-title {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.csv-kanban-card-title:hover {
+  color: var(--interactive-accent);
+  text-decoration: underline solid;
+}
+
+/* ─── Kanban inline note editor ───────────────────────────────────────────── */
+
+.csv-kanban-notes-preview {
+  cursor: pointer;
+}
+
+.csv-kanban-notes-preview--empty {
+  display: none;
+}
+
+.csv-kanban-notes-editor {
+  margin-top: 8px;
+}
+
+.csv-kanban-notes-editor .csv-notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  font-size: 12px;
+  font-family: var(--font-monospace);
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--csv-accent);
+  border-radius: var(--csv-radius-sm);
+  padding: 8px;
+  color: var(--csv-text);
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.csv-kanban-edit-btn {
+  margin-top: 4px;
+}
+
+.csv-kanban-card-title {
+  cursor: default;
+  text-decoration: none;
+}
+
+.csv-kanban-card-title:hover {
+  color: var(--csv-text);
+  text-decoration: none;
+}
+
+/* ─── Add Entry Modal ─────────────────────────────────────────────────────── */
+
+.csv-add-modal {
+  padding: 8px 4px;
+}
+
+.csv-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  color: var(--csv-text);
+}
+
+.csv-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 20px;
+}
+
+.csv-modal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.csv-modal-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+}
+
+.csv-modal-input {
+  padding: 7px 10px;
+  border-radius: var(--csv-radius-sm);
+  border: 1px solid var(--csv-border);
+  background: var(--background-modifier-form-field);
+  color: var(--csv-text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.csv-modal-input:focus {
+  border-color: var(--csv-accent);
+}
+
+.csv-modal-textarea {
+  padding: 8px 10px;
+  border-radius: var(--csv-radius-sm);
+  border: 1px solid var(--csv-border);
+  background: var(--background-modifier-form-field);
+  color: var(--csv-text);
+  font-size: 13px;
+  font-family: var(--font-monospace);
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+.csv-modal-textarea:focus {
+  border-color: var(--csv-accent);
+}
+
+.csv-modal-select-wrap {
+  display: flex;
+}
+
+.csv-modal-select-wrap .csv-select-chip {
+  min-width: 140px;
+}
+
+.csv-modal-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--csv-border);
+}
+
+.csv-modal-cancel {
+  padding: 7px 16px;
+  border-radius: var(--csv-radius-sm);
+  border: 1px solid var(--csv-border);
+  background: transparent;
+  color: var(--csv-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.csv-modal-cancel:hover {
+  background: var(--background-modifier-hover);
+  color: var(--csv-text);
+}
+
+.csv-modal-submit {
+  padding: 7px 20px;
+  border-radius: var(--csv-radius-sm);
+  border: none;
+  background: var(--csv-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.csv-modal-submit:hover {
+  background: var(--csv-accent-hover);
+}
+
+/* ─── Note Expander Modal ─────────────────────────────────────────────────── */
+
+.csv-note-expander-modal {
+  width: min(780px, 90vw) !important;
+  max-height: 85vh !important;
+}
+
+.csv-note-expander-modal .modal-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.csv-note-expander {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+}
+
+.csv-expander-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--csv-border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.csv-expander-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--csv-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csv-expander-header-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.csv-expander-edit-btn,
+.csv-expander-save-btn,
+.csv-expander-close-btn {
+  padding: 5px 12px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid var(--csv-border);
+}
+
+.csv-expander-edit-btn {
+  background: transparent;
+  color: var(--csv-text-muted);
+}
+.csv-expander-edit-btn:hover { background: var(--background-modifier-hover); color: var(--csv-text); }
+
+.csv-expander-save-btn {
+  background: var(--csv-accent);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
+}
+.csv-expander-save-btn:hover { background: var(--csv-accent-hover); }
+
+.csv-expander-close-btn {
+  background: transparent;
+  color: var(--csv-text-faint);
+}
+.csv-expander-close-btn:hover { color: var(--csv-text); background: var(--background-modifier-hover); }
+
+.csv-expander-rendered {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.csv-expander-rendered p { margin: 0 0 0.8em; }
+.csv-expander-rendered p:last-child { margin-bottom: 0; }
+.csv-expander-rendered blockquote {
+  border-left: 3px solid var(--csv-accent);
+  padding: 4px 12px;
+  margin: 8px 0;
+  color: var(--csv-text-muted);
+  font-style: italic;
+}
+.csv-expander-rendered h1,
+.csv-expander-rendered h2,
+.csv-expander-rendered h3 {
+  margin: 1em 0 0.4em;
+  font-weight: 700;
+}
+.csv-expander-rendered ul,
+.csv-expander-rendered ol { margin: 4px 0 10px 20px; }
+.csv-expander-rendered li { margin: 3px 0; }
+.csv-expander-rendered code {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  background: var(--background-modifier-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.csv-expander-rendered hr { border: none; border-top: 1px solid var(--csv-border); margin: 16px 0; }
+
+.csv-expander-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+}
+
+.csv-expander-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 320px;
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--csv-border);
+  border-radius: var(--csv-radius-sm);
+  color: var(--csv-text);
+  padding: 12px;
+  outline: none;
+  resize: none;
+}
+
+.csv-expander-textarea:focus {
+  border-color: var(--csv-accent);
+}
+
+/* ─── Table expand button ─────────────────────────────────────────────────── */
+
+.csv-table-notes-cell {
+  position: relative;
+}
+
+.csv-table-expand-btn {
+  display: none;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--csv-border);
+  background: var(--csv-surface);
+  color: var(--csv-text-muted);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.csv-table tr:hover .csv-table-expand-btn {
+  display: inline-block;
+}
+
+.csv-table-expand-btn:hover {
+  background: var(--csv-accent);
+  color: white;
+  border-color: transparent;
+}
+
+/* ─── Column config button & modal ────────────────────────────────────────── */
+
+.csv-cfg-btn {
+  padding: 5px 10px;
+  border-radius: var(--csv-radius-sm);
+  font-size: 12px;
+  border: 1px solid var(--csv-border);
+  background: transparent;
+  color: var(--csv-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.csv-cfg-btn:hover {
+  color: var(--csv-text);
+  background: var(--background-modifier-hover);
+  border-color: var(--csv-accent);
+}
+
+.csv-modal-desc {
+  font-size: 12px;
+  color: var(--csv-text-muted);
+  margin: -12px 0 16px;
+  line-height: 1.5;
+}
+
+.csv-modal-select {
+  padding: 7px 10px;
+  border-radius: var(--csv-radius-sm);
+  border: 1px solid var(--csv-border);
+  background: var(--background-modifier-form-field);
+  color: var(--csv-text);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.csv-modal-select:focus {
+  border-color: var(--csv-accent);
+}
+
+/* ─── Expander fields & layout updates ───────────────────────────────────── */
+
+.csv-note-expander-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.csv-note-expander {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.csv-expander-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--csv-border);
+  background: var(--csv-surface);
+}
+
+.csv-expander-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.csv-expander-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.csv-expander-field-value {
+  font-size: 12px;
+  color: var(--csv-text);
+  cursor: text;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.csv-expander-field-value:hover {
+  border-color: var(--csv-border);
+  background: var(--background-modifier-hover);
+}
+
+.csv-expander-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px 6px;
+  border-bottom: 1px solid var(--csv-border);
+  flex-shrink: 0;
+}
+
+.csv-expander-notes-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--csv-text-faint);
+  flex: 1;
+}
+
+.csv-expander-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--csv-border);
+  flex-shrink: 0;
+}
+
+/* Chip truncation in kanban */
+.csv-chip-value {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}

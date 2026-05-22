@@ -1,0 +1,10 @@
+{
+  "id": "csv-card-view",
+  "name": "CSV Card View",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "View and edit CSV files as cards, kanban, or table. Notes columns render as Markdown.",
+  "author": "Simon",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
