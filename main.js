@@ -47045,15 +47045,13 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     var _a, _b;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
     const labels = habitCols.map((h) => titleCase(h));
-    return `> Requires **Dataview** plugin with DataviewJS enabled.
-
-## Quick Add
+    return `## Quick Add
 
 \`\`\`csv-add
 file: ${fileName}
 \`\`\`
 
-## Recent Entries
+## Entries
 
 \`\`\`csv-refresh
 \`\`\`
@@ -47064,58 +47062,101 @@ if (!csvData || !csvData.length) {
   dv.paragraph("No data found");
 } else {
   const data = csvData.array();
-  const recent = data.slice(-10).reverse();
   const habits = [${habitCols.map((h) => `"${h}"`).join(", ")}];
   const labels = [${labels.map((h) => `"${h}"`).join(", ")}];
 
+  // View toggle state (stored in localStorage)
+  const viewKey = "csv-mobile-view-" + dv.current().file.path;
+  let showAll = localStorage.getItem(viewKey) === "all";
+
   const container = dv.container;
-  container.style.overflowX = "auto";
-  container.style.fontSize = "12px";
 
-  // Style table headers to prevent word breaks
-  setTimeout(() => {
-    container.querySelectorAll("th").forEach(th => {
-      th.style.whiteSpace = "nowrap";
-      th.style.padding = "4px 8px";
-    });
-    container.querySelectorAll("td").forEach(td => {
-      td.style.padding = "4px 8px";
-      td.style.textAlign = "center";
-    });
-  }, 50);
+  // View toggle buttons
+  const toggleWrap = container.createEl("div", { cls: "csv-mobile-toggle" });
+  const recentBtn = toggleWrap.createEl("button", { text: "Recent", cls: showAll ? "" : "active" });
+  const allBtn = toggleWrap.createEl("button", { text: "All " + data.length, cls: showAll ? "active" : "" });
 
-  dv.table(
-    ["Date", ...labels],
-    recent.map(r => {
-      const dateVal = r["${dateCol}"];
-      let shortDate = "";
-      if (dateVal?.toFormat) {
-        shortDate = dateVal.toFormat("MM-dd");
-      } else if (dateVal instanceof Date) {
-        shortDate = (dateVal.getMonth()+1).toString().padStart(2,"0") + "-" + dateVal.getDate().toString().padStart(2,"0");
-      } else {
-        const s = String(dateVal ?? "");
-        shortDate = s.length >= 10 ? s.slice(5, 10) : s;
-      }
-      return [shortDate, ...habits.map(h => r[h] == "1" || r[h] == "true" ? "\u2713" : "\xB7")];
-    })
-  );
+  recentBtn.onclick = () => { localStorage.setItem(viewKey, "recent"); location.reload(); };
+  allBtn.onclick = () => { localStorage.setItem(viewKey, "all"); location.reload(); };
+
+  // Apply minimal styles
+  toggleWrap.style.cssText = "display:flex;gap:8px;margin-bottom:16px;";
+  [recentBtn, allBtn].forEach(btn => {
+    btn.style.cssText = "padding:6px 12px;border:none;background:transparent;color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;";
+    if (btn.classList.contains("active")) {
+      btn.style.background = "var(--background-secondary)";
+      btn.style.color = "var(--text-normal)";
+    }
+  });
+
+  // Get entries based on view
+  const entries = showAll ? [...data].reverse() : data.slice(-10).reverse();
+
+  // Table wrapper
+  const tableWrap = container.createEl("div");
+  tableWrap.style.cssText = "overflow-x:auto;font-size:14px;";
+
+  // Render table
+  const table = tableWrap.createEl("table");
+  table.style.cssText = "width:100%;border-collapse:collapse;";
+
+  // Header
+  const thead = table.createEl("thead");
+  const headerRow = thead.createEl("tr");
+  ["Date", ...labels].forEach(h => {
+    const th = headerRow.createEl("th", { text: h });
+    th.style.cssText = "text-align:left;padding:8px 10px;font-weight:500;color:var(--text-muted);font-size:12px;white-space:nowrap;border-bottom:1px solid var(--background-modifier-border);";
+    if (h !== "Date") th.style.textAlign = "center";
+  });
+
+  // Body
+  const tbody = table.createEl("tbody");
+  entries.forEach(r => {
+    const dateVal = r["${dateCol}"];
+    let shortDate = "";
+    if (dateVal?.toFormat) {
+      shortDate = dateVal.toFormat("MM-dd");
+    } else if (dateVal instanceof Date) {
+      shortDate = (dateVal.getMonth()+1).toString().padStart(2,"0") + "-" + dateVal.getDate().toString().padStart(2,"0");
+    } else {
+      const s = String(dateVal ?? "");
+      shortDate = s.length >= 10 ? s.slice(5, 10) : s;
+    }
+
+    const row = tbody.createEl("tr");
+    const dateCell = row.createEl("td", { text: shortDate });
+    dateCell.style.cssText = "padding:10px;color:var(--text-muted);font-size:13px;";
+
+    habits.forEach(h => {
+      const td = row.createEl("td");
+      td.style.cssText = "padding:10px;text-align:center;";
+      const done = r[h] == "1" || r[h] == "true";
+      td.textContent = done ? "\u2713" : "\xB7";
+      td.style.color = done ? "var(--text-accent)" : "var(--text-faint)";
+      td.style.fontWeight = done ? "600" : "400";
+    });
+  });
+
+  if (!showAll && data.length > 10) {
+    const hint = container.createEl("p");
+    hint.style.cssText = "color:var(--text-faint);font-size:12px;margin-top:12px;";
+    hint.textContent = "Showing last 10 of " + data.length + " entries";
+  }
 }
 \`\`\`
+
+---
+<small style="color:var(--text-faint)">Requires Dataview plugin with DataviewJS enabled</small>
 `;
   }
   generateLibraryMobileDashboard(csvPath) {
-    var _a, _b, _c;
+    var _a, _b;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
     const titleKey = this.titleKey();
     const categoryCol = this.getCategoryCol();
     const statusCol = this.getStatusCol();
     const displayCols = [titleKey, categoryCol, statusCol].filter(Boolean);
-    return `# ${(_c = this.file) == null ? void 0 : _c.basename} - Mobile
-
-> Requires **Dataview** plugin with DataviewJS enabled.
-
-## Add New Entry
+    return `## Add Entry
 
 \`\`\`csv-add
 file: ${fileName}
@@ -47123,56 +47164,67 @@ file: ${fileName}
 
 ## Library
 
+\`\`\`csv-refresh
+\`\`\`
+
 \`\`\`dataviewjs
 const csvData = await dv.io.csv("${csvPath}");
 if (!csvData || !csvData.length) {
   dv.paragraph("No data found");
 } else {
   const data = csvData.array();
+
+  const container = dv.container;
+  container.style.cssText = "font-size:14px;";
+
+  // View toggle
+  const viewKey = "csv-mobile-view-" + dv.current().file.path;
+  let showAll = localStorage.getItem(viewKey) === "all";
+
+  const toggleWrap = container.createEl("div");
+  toggleWrap.style.cssText = "display:flex;gap:8px;margin-bottom:16px;";
+  const recentBtn = toggleWrap.createEl("button", { text: "Recent" });
+  const allBtn = toggleWrap.createEl("button", { text: "All " + data.length });
+
+  [recentBtn, allBtn].forEach((btn, i) => {
+    const isActive = (i === 0 && !showAll) || (i === 1 && showAll);
+    btn.style.cssText = "padding:6px 12px;border:none;background:" + (isActive ? "var(--background-secondary)" : "transparent") + ";color:" + (isActive ? "var(--text-normal)" : "var(--text-muted)") + ";font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;";
+    btn.onclick = () => { localStorage.setItem(viewKey, i === 0 ? "recent" : "all"); location.reload(); };
+  });
+
+  const entries = showAll ? data : data.slice(-20).reverse();
+
   dv.table(
     [${displayCols.map((c) => `"${c}"`).join(", ")}],
-    data.slice(-20).reverse().map(r => [${displayCols.map((c) => `r["${c}"] || ""`).join(", ")}])
+    entries.map(r => [${displayCols.map((c) => `r["${c}"] || ""`).join(", ")}])
   );
-  dv.paragraph(\`*Showing last 20 of \${data.length} entries*\`);
-}
-\`\`\`
 
-## Search by Status
-
-\`\`\`dataviewjs
-const csvData = await dv.io.csv("${csvPath}");
-if (!csvData || !csvData.length) {
-  dv.paragraph("No data");
-} else {
-  const data = csvData.array();
-  const statusCol = "${statusCol || "Status"}";
-  const statuses = [...new Set(data.map(r => r[statusCol]).filter(Boolean))];
-
-  for (const status of statuses) {
-    const items = data.filter(r => r[statusCol] === status);
-    dv.header(3, \`\${status} (\${items.length})\`);
-    dv.list(items.slice(0, 5).map(r => r["${titleKey}"]));
-    if (items.length > 5) dv.paragraph(\`*... and \${items.length - 5} more*\`);
+  if (!showAll) {
+    const hint = container.createEl("p");
+    hint.style.cssText = "color:var(--text-faint);font-size:12px;margin-top:8px;";
+    hint.textContent = "Showing last 20 of " + data.length + " entries";
   }
 }
 \`\`\`
+
+---
+<small style="color:var(--text-faint)">Requires Dataview plugin with DataviewJS enabled</small>
 `;
   }
   generateGenericMobileDashboard(csvPath) {
-    var _a, _b, _c;
+    var _a, _b;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
     const displayCols = this.headers.slice(0, 4);
-    return `# ${(_c = this.file) == null ? void 0 : _c.basename} - Mobile
-
-> Requires **Dataview** plugin with DataviewJS enabled.
-
-## Add New Entry
+    return `## Add Entry
 
 \`\`\`csv-add
 file: ${fileName}
 \`\`\`
 
-## Recent Entries
+## Entries
+
+\`\`\`csv-refresh
+\`\`\`
 
 \`\`\`dataviewjs
 const csvData = await dv.io.csv("${csvPath}");
@@ -47180,13 +47232,42 @@ if (!csvData || !csvData.length) {
   dv.paragraph("No data found");
 } else {
   const data = csvData.array();
+
+  const container = dv.container;
+  container.style.cssText = "font-size:14px;";
+
+  // View toggle
+  const viewKey = "csv-mobile-view-" + dv.current().file.path;
+  let showAll = localStorage.getItem(viewKey) === "all";
+
+  const toggleWrap = container.createEl("div");
+  toggleWrap.style.cssText = "display:flex;gap:8px;margin-bottom:16px;";
+  const recentBtn = toggleWrap.createEl("button", { text: "Recent" });
+  const allBtn = toggleWrap.createEl("button", { text: "All " + data.length });
+
+  [recentBtn, allBtn].forEach((btn, i) => {
+    const isActive = (i === 0 && !showAll) || (i === 1 && showAll);
+    btn.style.cssText = "padding:6px 12px;border:none;background:" + (isActive ? "var(--background-secondary)" : "transparent") + ";color:" + (isActive ? "var(--text-normal)" : "var(--text-muted)") + ";font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;";
+    btn.onclick = () => { localStorage.setItem(viewKey, i === 0 ? "recent" : "all"); location.reload(); };
+  });
+
+  const entries = showAll ? data : data.slice(-15).reverse();
+
   dv.table(
     [${displayCols.map((c) => `"${c}"`).join(", ")}],
-    data.slice(-15).reverse().map(r => [${displayCols.map((c) => `r["${c}"] || ""`).join(", ")}])
+    entries.map(r => [${displayCols.map((c) => `r["${c}"] || ""`).join(", ")}])
   );
-  dv.paragraph(\`*Showing last 15 of \${data.length} entries*\`);
+
+  if (!showAll) {
+    const hint = container.createEl("p");
+    hint.style.cssText = "color:var(--text-faint);font-size:12px;margin-top:8px;";
+    hint.textContent = "Showing last 15 of " + data.length + " entries";
+  }
 }
 \`\`\`
+
+---
+<small style="color:var(--text-faint)">Requires Dataview plugin with DataviewJS enabled</small>
 `;
   }
   // ── Kanban by Genre ────────────────────────────────────────────────────────
@@ -47548,9 +47629,9 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
     });
     this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el, ctx) => {
       const btn = el.createEl("button", {
-        text: "\u{1F504} Refresh",
         cls: "csv-refresh-btn"
       });
+      btn.innerHTML = "\u21BB refresh";
       btn.addEventListener("click", async () => {
         const currentPath = ctx.sourcePath;
         const file = this.app.vault.getAbstractFileByPath(currentPath);
