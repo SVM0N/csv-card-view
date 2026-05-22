@@ -47546,18 +47546,19 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
       await this.renderAddEntryForm(source.trim(), el, ctx);
     });
-    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el) => {
+    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el, ctx) => {
       const btn = el.createEl("button", {
         text: "\u{1F504} Refresh",
         cls: "csv-refresh-btn"
       });
-      btn.addEventListener("click", () => {
-        const leaf = this.app.workspace.activeLeaf;
-        if (leaf == null ? void 0 : leaf.rebuildView) {
-          leaf.rebuildView();
-        } else {
-          this.app.commands.executeCommandById("markdown:toggle-preview");
-          setTimeout(() => this.app.commands.executeCommandById("markdown:toggle-preview"), 100);
+      btn.addEventListener("click", async () => {
+        const currentPath = ctx.sourcePath;
+        const file = this.app.vault.getAbstractFileByPath(currentPath);
+        if (file instanceof import_obsidian.TFile) {
+          const leaf = this.app.workspace.activeLeaf;
+          if (leaf) {
+            await leaf.openFile(file, { state: { mode: "preview" } });
+          }
         }
       });
     });
@@ -47814,10 +47815,13 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           }
         });
         form.querySelectorAll(".csv-add-toggle").forEach((t) => t.classList.remove("checked"));
-        setTimeout(() => {
-          const leaf = this.app.workspace.activeLeaf;
-          if (leaf == null ? void 0 : leaf.rebuildView) {
-            leaf.rebuildView();
+        setTimeout(async () => {
+          const noteFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+          if (noteFile instanceof import_obsidian.TFile) {
+            const leaf = this.app.workspace.activeLeaf;
+            if (leaf) {
+              await leaf.openFile(noteFile, { state: { mode: "preview" } });
+            }
           }
         }, 300);
       } catch (e) {

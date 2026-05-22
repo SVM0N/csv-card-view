@@ -1982,20 +1982,20 @@ export default class CardViewPlugin extends Plugin {
     });
 
     // Register csv-refresh code block for manual refresh button
-    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el) => {
+    this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el, ctx) => {
       const btn = el.createEl("button", {
         text: "🔄 Refresh",
         cls: "csv-refresh-btn"
       });
-      btn.addEventListener("click", () => {
-        // Force re-render the current note to refresh Dataview
-        const leaf = this.app.workspace.activeLeaf;
-        if (leaf?.rebuildView) {
-          leaf.rebuildView();
-        } else {
-          // Fallback: toggle edit mode to force refresh
-          this.app.commands.executeCommandById("markdown:toggle-preview");
-          setTimeout(() => this.app.commands.executeCommandById("markdown:toggle-preview"), 100);
+      btn.addEventListener("click", async () => {
+        // Close and reopen the note to force Dataview to re-read CSV
+        const currentPath = ctx.sourcePath;
+        const file = this.app.vault.getAbstractFileByPath(currentPath);
+        if (file instanceof TFile) {
+          const leaf = this.app.workspace.activeLeaf;
+          if (leaf) {
+            await leaf.openFile(file, { state: { mode: "preview" } });
+          }
         }
       });
     });
@@ -2273,11 +2273,14 @@ export default class CardViewPlugin extends Plugin {
         // Update toggle visual state
         form.querySelectorAll(".csv-add-toggle").forEach(t => t.classList.remove("checked"));
 
-        // Auto-refresh the page to update Dataview results
-        setTimeout(() => {
-          const leaf = this.app.workspace.activeLeaf;
-          if (leaf?.rebuildView) {
-            leaf.rebuildView();
+        // Auto-refresh: reopen the note to force Dataview to re-read CSV
+        setTimeout(async () => {
+          const noteFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+          if (noteFile instanceof TFile) {
+            const leaf = this.app.workspace.activeLeaf;
+            if (leaf) {
+              await leaf.openFile(noteFile, { state: { mode: "preview" } });
+            }
           }
         }, 300);
       } catch (e) {
