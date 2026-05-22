@@ -336,6 +336,41 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 
 ---
 
+## Refactoring Plan (In Progress)
+
+The `main.ts` file is 2253 lines and should be split into modules. Initial structure created in `src/`:
+
+```
+src/
+├── types.ts       # ✅ Created - Types, interfaces, DEFAULT_SETTINGS
+├── utils.ts       # ✅ Created - parseCSV, escapeCSV, titleCase, showSelectPicker
+├── modals.ts      # TODO - AddEntryModal, NoteExpanderModal, FileConfigModal (~330 lines)
+├── view.ts        # TODO - XLSXCardView class (~1400 lines)
+└── settings.ts    # TODO - CardViewSettingTab (~30 lines)
+```
+
+**To complete refactoring:**
+1. Create `src/modals.ts` with all Modal classes (lines 159-489 of main.ts)
+2. Create `src/view.ts` with XLSXCardView (lines 495-1958)
+3. Create `src/settings.ts` with CardViewSettingTab (lines 1960-1983)
+4. Create new `src/main.ts` that imports from modules and exports plugin
+5. Update `esbuild.config.mjs` entry point to `src/main.ts`
+6. Delete old root `main.ts` after verification
+7. Run tests and verify build
+
+**Further split for view.ts (optional, if still too large):**
+```
+src/view/
+├── index.ts       # Main class shell, imports render methods
+├── toolbar.ts     # renderToolbar
+├── table.ts       # renderTable
+├── kanban.ts      # renderKanbanGenre
+├── dashboard.ts   # renderDashboard + stats + charts
+└── mobile.ts      # generateMobileFiles, mobile dashboard generation
+```
+
+---
+
 ## Known issues / future work
 
 - [ ] **Per-file view configuration — views themselves** — currently the two view types (kanban-genre, table) are global and fixed. A future improvement: let each file declare which views are available and what they're named. E.g. a movie database might want "By Director" and "By Decade" kanbans, not "By Genre". Implementation: store a `views: ViewDefinition[]` array in `fileConfigs[path]`, where each `ViewDefinition` has a `type`, `label`, `groupCol`, and `subgroupCol`. The toolbar would render buttons dynamically from that array. The "⚙ Columns" modal would let the user add/remove/rename views and pick their column mappings.
