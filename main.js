@@ -45677,6 +45677,30 @@ function sanitizeFilename(name) {
 function titleCase(str) {
   return str.split(/[\s_-]+/).map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 }
+function formatRating(value, columnName) {
+  var _a;
+  const col = columnName.toLowerCase();
+  if (!["rating", "score", "score /5"].includes(col))
+    return value;
+  const val = value.toLowerCase().trim();
+  const ratingMap = {
+    "excellent": "\u2605\u2605\u2605\u2605\u2605",
+    "great": "\u2605\u2605\u2605\u2605\u2605",
+    "good": "\u2605\u2605\u2605\u2605\u2606",
+    "fair": "\u2605\u2605\u2605\u2606\u2606",
+    "poor": "\u2605\u2605\u2606\u2606\u2606",
+    "bad": "\u2605\u2606\u2606\u2606\u2606",
+    "5": "\u2605\u2605\u2605\u2605\u2605",
+    "4": "\u2605\u2605\u2605\u2605\u2606",
+    "3": "\u2605\u2605\u2605\u2606\u2606",
+    "2": "\u2605\u2605\u2606\u2606\u2606",
+    "1": "\u2605\u2606\u2606\u2606\u2606",
+    "0": "\u2606\u2606\u2606\u2606\u2606",
+    "unrated": "\u2014",
+    "": "\u2014"
+  };
+  return (_a = ratingMap[val]) != null ? _a : value;
+}
 function showSelectPicker(anchor, currentValue, allValues, onSelect, container) {
   container.querySelectorAll(".csv-select-picker").forEach((el) => el.remove());
   const picker = container.createDiv({ cls: "csv-select-picker" });
@@ -46043,6 +46067,9 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     this.selectedHabit = null;
     this.chartInstance = null;
     this.timelineYear = (/* @__PURE__ */ new Date()).getFullYear();
+    // ── Library View ────────────────────────────────────────────────────────────
+    this.libraryStatusFilter = "all";
+    this.libraryGenreFilter = "all";
     this.settings = settings;
     this.mode = settings.defaultMode;
     this.renderComponent = new import_obsidian2.Component();
@@ -46437,6 +46464,8 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     }
     if (this.mode === "dashboard")
       this.renderDashboard(content);
+    else if (this.mode === "library")
+      this.renderLibrary(content);
     else if (this.mode === "kanban-genre")
       this.renderKanbanGenre(content);
     else
@@ -46452,8 +46481,10 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     const modes = [];
     if (this.hasDateColumn())
       modes.push({ id: "dashboard", label: "Dashboard" });
-    if (this.getCategoryCol())
+    if (this.getCategoryCol()) {
+      modes.push({ id: "library", label: "Library" });
       modes.push({ id: "kanban-genre", label: "By Genre" });
+    }
     modes.push({ id: "table", label: "Table" });
     modes.forEach(({ id, label }) => {
       const btn = mg.createEl("button", { cls: `csv-mode-btn ${this.mode === id ? "active" : ""}`, text: label });
@@ -47343,6 +47374,202 @@ if (!csvData || !csvData.length) {
 ---
 <small style="color:var(--text-faint)">Requires Dataview plugin with DataviewJS enabled</small>
 `;
+  }
+  renderLibrary(container) {
+    var _a;
+    const cc = this.getCategoryCol();
+    const sc = this.getStatusCol();
+    const titleCol = (_a = this.titleKey()) != null ? _a : this.headers[0];
+    const authorCol = this.authorKey();
+    if (!cc) {
+      container.createEl("p", { text: `No category column found.`, cls: "csv-empty-state" });
+      return;
+    }
+    const allGenres = /* @__PURE__ */ new Set();
+    this.rows.forEach((row) => {
+      var _a2;
+      const cats = ((_a2 = row[cc]) != null ? _a2 : "").split(",").map((c) => c.trim()).filter(Boolean);
+      cats.forEach((c) => allGenres.add(c));
+    });
+    const allStatuses = /* @__PURE__ */ new Set();
+    if (sc) {
+      this.rows.forEach((row) => {
+        var _a2;
+        const status = ((_a2 = row[sc]) != null ? _a2 : "").trim();
+        if (status)
+          allStatuses.add(status);
+      });
+    }
+    const filtersBar = container.createDiv({ cls: "csv-library-filters" });
+    const statusSelect = filtersBar.createEl("select", { cls: "csv-library-filter-select" });
+    statusSelect.createEl("option", { text: "All", value: "all" });
+    const commonDone = ["watched", "read", "finished", "completed", "done"];
+    const commonInProgress = ["watching", "reading", "in progress", "in-progress"];
+    const hasDone = Array.from(allStatuses).some((s) => commonDone.includes(s.toLowerCase()));
+    const hasInProgress = Array.from(allStatuses).some((s) => commonInProgress.includes(s.toLowerCase()));
+    if (hasDone || hasInProgress) {
+      statusSelect.createEl("option", { text: "\u2500\u2500\u2500\u2500\u2500\u2500\u2500", value: "", attr: { disabled: "true" } });
+      if (hasDone)
+        statusSelect.createEl("option", { text: "\u2713 Done", value: "__done__" });
+      if (hasInProgress)
+        statusSelect.createEl("option", { text: "\u25D0 In Progress", value: "__inprogress__" });
+      statusSelect.createEl("option", { text: "\u25CB Not Started", value: "__notstarted__" });
+    }
+    if (allStatuses.size > 0) {
+      statusSelect.createEl("option", { text: "\u2500\u2500\u2500\u2500\u2500\u2500\u2500", value: "", attr: { disabled: "true" } });
+      Array.from(allStatuses).sort().forEach((s) => {
+        statusSelect.createEl("option", { text: s, value: s });
+      });
+    }
+    statusSelect.value = this.libraryStatusFilter;
+    const genreSelect = filtersBar.createEl("select", { cls: "csv-library-filter-select" });
+    genreSelect.createEl("option", { text: "All genres", value: "all" });
+    Array.from(allGenres).sort().forEach((g) => {
+      genreSelect.createEl("option", { text: g, value: g });
+    });
+    genreSelect.value = this.libraryGenreFilter;
+    const searchInput = filtersBar.createEl("input", {
+      cls: "csv-library-search",
+      type: "text",
+      placeholder: "Search by title...",
+      value: this.searchQuery
+    });
+    const applyFilters = () => {
+      this.libraryStatusFilter = statusSelect.value;
+      this.libraryGenreFilter = genreSelect.value;
+      this.searchQuery = searchInput.value;
+      this.renderView(true);
+    };
+    statusSelect.addEventListener("change", applyFilters);
+    genreSelect.addEventListener("change", applyFilters);
+    searchInput.addEventListener("input", applyFilters);
+    let filtered = this.rows.filter((row) => {
+      var _a2, _b, _c;
+      if (this.libraryStatusFilter !== "all" && sc) {
+        const rowStatus = ((_a2 = row[sc]) != null ? _a2 : "").toLowerCase();
+        if (this.libraryStatusFilter === "__done__") {
+          if (!commonDone.includes(rowStatus))
+            return false;
+        } else if (this.libraryStatusFilter === "__inprogress__") {
+          if (!commonInProgress.includes(rowStatus))
+            return false;
+        } else if (this.libraryStatusFilter === "__notstarted__") {
+          if (commonDone.includes(rowStatus) || commonInProgress.includes(rowStatus))
+            return false;
+        } else {
+          if (rowStatus !== this.libraryStatusFilter.toLowerCase())
+            return false;
+        }
+      }
+      if (this.libraryGenreFilter !== "all") {
+        const rowGenres = ((_b = row[cc]) != null ? _b : "").split(",").map((c) => c.trim().toLowerCase());
+        if (!rowGenres.includes(this.libraryGenreFilter.toLowerCase()))
+          return false;
+      }
+      if (this.searchQuery.trim()) {
+        const title = ((_c = row[titleCol]) != null ? _c : "").toLowerCase();
+        if (!title.includes(this.searchQuery.toLowerCase()))
+          return false;
+      }
+      return true;
+    });
+    if (this.libraryStatusFilter !== "all" || this.libraryGenreFilter !== "all" || this.searchQuery.trim()) {
+      container.createDiv({
+        cls: "csv-library-result-count",
+        text: `Showing ${filtered.length} of ${this.rows.length} entries`
+      });
+    }
+    const groups = {};
+    filtered.forEach((row) => {
+      var _a2;
+      const cats = this.libraryGenreFilter !== "all" ? [this.libraryGenreFilter] : ((_a2 = row[cc]) != null ? _a2 : "Uncategorized").split(",").map((c) => c.trim()).filter(Boolean);
+      if (cats.length === 0)
+        cats.push("Uncategorized");
+      cats.forEach((cat) => {
+        if (!groups[cat])
+          groups[cat] = [];
+        groups[cat].push(row);
+      });
+    });
+    const sectionsWrap = container.createDiv({ cls: "csv-library-sections" });
+    Object.keys(groups).sort().forEach((genre) => {
+      const items = groups[genre];
+      const section = sectionsWrap.createEl("details", { cls: "csv-library-section" });
+      section.open = true;
+      const summary = section.createEl("summary", { cls: "csv-library-section-header" });
+      summary.innerHTML = `<span class="csv-library-arrow">\u25B6</span> ${genre} <span class="csv-library-count">${items.length}</span>`;
+      const grid = section.createDiv({ cls: "csv-library-grid" });
+      items.sort((a, b) => {
+        var _a2, _b, _c, _d;
+        if (sc) {
+          const statusA = ((_a2 = a[sc]) != null ? _a2 : "").toLowerCase();
+          const statusB = ((_b = b[sc]) != null ? _b : "").toLowerCase();
+          const inProgressA = commonInProgress.includes(statusA);
+          const inProgressB = commonInProgress.includes(statusB);
+          if (inProgressA !== inProgressB)
+            return inProgressA ? -1 : 1;
+        }
+        return ((_c = a[titleCol]) != null ? _c : "").localeCompare((_d = b[titleCol]) != null ? _d : "");
+      });
+      items.forEach((row) => {
+        var _a2, _b, _c, _d;
+        const card = grid.createDiv({ cls: "csv-library-card" });
+        const titleWrap = card.createDiv({ cls: "csv-library-card-title" });
+        if (sc) {
+          const status = ((_a2 = row[sc]) != null ? _a2 : "").toLowerCase();
+          if (commonDone.includes(status)) {
+            titleWrap.createSpan({ cls: "csv-library-done-dot" });
+          }
+        }
+        titleWrap.createSpan({ text: (_b = row[titleCol]) != null ? _b : "Untitled" });
+        const meta = [];
+        if (authorCol && row[authorCol])
+          meta.push(row[authorCol]);
+        const yearCol = this.resolveCol(["Year", "year", "Date", "date"]);
+        if (yearCol && row[yearCol]) {
+          const yearVal = row[yearCol];
+          const yearMatch = yearVal.match(/\d{4}/);
+          if (yearMatch)
+            meta.push(yearMatch[0]);
+        }
+        if (meta.length) {
+          card.createDiv({ cls: "csv-library-card-meta", text: meta.join(" \xB7 ") });
+        }
+        const ratingCol = this.resolveCol(["Rating", "rating", "Score", "score", "Score /5"]);
+        if (ratingCol && row[ratingCol]) {
+          const ratingVal = row[ratingCol].trim();
+          const stars = { "1": "\u2605", "2": "\u2605\u2605", "3": "\u2605\u2605\u2605", "4": "\u2605\u2605\u2605\u2605", "5": "\u2605\u2605\u2605\u2605\u2605" };
+          const starDisplay = (_c = stars[ratingVal]) != null ? _c : formatRating(ratingVal, ratingCol);
+          if (starDisplay && starDisplay !== ratingVal) {
+            card.createDiv({ cls: "csv-library-card-rating", text: starDisplay });
+          }
+        }
+        const tagsCol = this.resolveCol(["Theme", "theme", "Tags", "tags", "Tag", "tag"]);
+        const tags = [];
+        if (tagsCol && row[tagsCol]) {
+          tags.push(...row[tagsCol].split(",").map((t) => t.trim()).filter(Boolean));
+        }
+        if (this.libraryGenreFilter !== "all") {
+          const otherGenres = ((_d = row[cc]) != null ? _d : "").split(",").map((c) => c.trim()).filter((c) => c && c.toLowerCase() !== this.libraryGenreFilter.toLowerCase());
+          tags.push(...otherGenres);
+        }
+        if (tags.length) {
+          const tagsWrap = card.createDiv({ cls: "csv-library-card-tags" });
+          tags.slice(0, 3).forEach((tag) => {
+            tagsWrap.createSpan({ cls: "csv-library-card-tag", text: tag });
+          });
+        }
+        card.addEventListener("click", () => {
+          const notesCol = this.getNotesCol();
+          if (notesCol) {
+            this.openNoteExpander(row, notesCol);
+          }
+        });
+      });
+    });
+    if (Object.keys(groups).length === 0) {
+      sectionsWrap.createEl("p", { text: "No entries match your filters.", cls: "csv-empty-state" });
+    }
   }
   // ── Kanban by Genre ────────────────────────────────────────────────────────
   renderKanbanGenre(container) {

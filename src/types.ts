@@ -1,7 +1,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CSVRow { [key: string]: string; }
-export type ViewMode = "kanban-genre" | "table" | "dashboard";
+export type ViewMode = "kanban-genre" | "table" | "dashboard" | "library";
 
 // Per-file overrides, keyed by vault file path
 export interface FileConfig {
