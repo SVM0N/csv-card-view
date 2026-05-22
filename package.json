@@ -5,7 +5,12 @@
   "main": "main.js",
   "scripts": {
     "build": "node esbuild.config.mjs",
-    "dev": "node esbuild.config.mjs --watch"
+    "dev": "node esbuild.config.mjs --watch",
+    "test": "node test-plugin-logic.mjs",
+    "test:csv": "node test-csv-parser.mjs",
+    "test:all": "node test-csv-parser.mjs && node test-plugin-logic.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run test:all && npm run build"
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
