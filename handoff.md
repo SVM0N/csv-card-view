@@ -13,8 +13,12 @@ An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, or da
 
 ```
 csv-card-view/
-├── main.ts              # Full plugin source (TypeScript) — edit this
+├── main.ts              # Main plugin source (~1839 lines) - XLSXCardView, Settings, Plugin
 ├── main.js              # Compiled output — do not edit directly
+├── src/
+│   ├── types.ts         # Types, interfaces, DEFAULT_SETTINGS (~40 lines)
+│   ├── utils.ts         # Utility functions (~165 lines)
+│   └── modals.ts        # Modal classes (~295 lines)
 ├── styles.css           # All plugin CSS (~1300+ lines)
 ├── manifest.json        # Obsidian plugin manifest (id: csv-card-view)
 ├── package.json         # deps: xlsx (SheetJS), chart.js, esbuild, obsidian types
@@ -336,29 +340,24 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 
 ---
 
-## Refactoring Plan (In Progress)
+## Refactoring Status
 
-The `main.ts` file is 2253 lines and should be split into modules. Initial structure created in `src/`:
+The `main.ts` file has been reduced from 2304 to 1839 lines by extracting modules to `src/`:
 
 ```
 src/
-├── types.ts       # ✅ Created - Types, interfaces, DEFAULT_SETTINGS
-├── utils.ts       # ✅ Created - parseCSV, escapeCSV, titleCase, showSelectPicker
-├── modals.ts      # TODO - AddEntryModal, NoteExpanderModal, FileConfigModal (~330 lines)
-├── view.ts        # TODO - XLSXCardView class (~1400 lines)
-└── settings.ts    # TODO - CardViewSettingTab (~30 lines)
+├── types.ts       # ✅ Types, interfaces, DEFAULT_SETTINGS, CARD_VIEW_TYPE
+├── utils.ts       # ✅ sanitizeFilename, titleCase, formatRating, showSelectPicker, parseCSV, escapeCSV
+├── modals.ts      # ✅ AddEntryModal, NoteExpanderModal, FileConfigModal
 ```
 
-**To complete refactoring:**
-1. Create `src/modals.ts` with all Modal classes (lines 159-489 of main.ts)
-2. Create `src/view.ts` with XLSXCardView (lines 495-1958)
-3. Create `src/settings.ts` with CardViewSettingTab (lines 1960-1983)
-4. Create new `src/main.ts` that imports from modules and exports plugin
-5. Update `esbuild.config.mjs` entry point to `src/main.ts`
-6. Delete old root `main.ts` after verification
-7. Run tests and verify build
+**Current main.ts structure:**
+- `XLSXCardView` class (~1400 lines) - the main view component
+- `CardViewSettingTab` class (~25 lines) - settings UI
+- `CardViewPlugin` class (~340 lines) - plugin entry + csv-add/csv-refresh code blocks
 
-**Further split for view.ts (optional, if still too large):**
+**Future refactoring (optional):**
+If XLSXCardView needs to be split further:
 ```
 src/view/
 ├── index.ts       # Main class shell, imports render methods
