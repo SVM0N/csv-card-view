@@ -507,12 +507,11 @@ var require_papaparse_min = __commonJS({
 // main.ts
 var main_exports = {};
 __export(main_exports, {
-  CARD_VIEW_TYPE: () => CARD_VIEW_TYPE,
   XLSXCardView: () => XLSXCardView,
   default: () => CardViewPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // node_modules/xlsx/xlsx.mjs
 var XLSX = {};
@@ -45658,8 +45657,7 @@ var TimeSeriesScale = class extends TimeScale {
 __publicField(TimeSeriesScale, "id", "timeseries");
 __publicField(TimeSeriesScale, "defaults", TimeScale.defaults);
 
-// main.ts
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, index, plugin_tooltip);
+// src/types.ts
 var DEFAULT_SETTINGS = {
   defaultMode: "kanban-genre",
   notesColumns: ["notes", "note", "Notes", "Note", "description", "Description", "review", "Review"],
@@ -45670,6 +45668,9 @@ var DEFAULT_SETTINGS = {
   selectColumns: ["Category", "Type", "Rating", "Status", "rating", "type", "category", "status", "Score /5"],
   fileConfigs: {}
 };
+var CARD_VIEW_TYPE = "xlsx-card-view";
+
+// src/utils.ts
 function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
 }
@@ -45746,6 +45747,9 @@ function showSelectPicker(anchor, currentValue, allValues, onSelect, container) 
     }
   });
 }
+
+// src/modals.ts
+var import_obsidian = require("obsidian");
 var AddEntryModal = class extends import_obsidian.Modal {
   constructor(app, headers, isNotesCol, isSelectCol, getColumnValues, onSubmit) {
     super(app);
@@ -46021,8 +46025,10 @@ var FileConfigModal = class extends import_obsidian.Modal {
     this.contentEl.empty();
   }
 };
-var CARD_VIEW_TYPE = "xlsx-card-view";
-var XLSXCardView = class extends import_obsidian.FileView {
+
+// main.ts
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, index, plugin_tooltip);
+var XLSXCardView = class extends import_obsidian2.FileView {
   constructor(leaf, settings) {
     super(leaf);
     this.headers = [];
@@ -46039,7 +46045,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
     this.timelineYear = (/* @__PURE__ */ new Date()).getFullYear();
     this.settings = settings;
     this.mode = settings.defaultMode;
-    this.renderComponent = new import_obsidian.Component();
+    this.renderComponent = new import_obsidian2.Component();
     this.renderComponent.load();
   }
   getViewType() {
@@ -46334,7 +46340,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
     const csvFolder = (_c = (_b = (_a = this.file) == null ? void 0 : _a.parent) == null ? void 0 : _b.path) != null ? _c : "";
     const sub = this.settings.notesSubfolder.trim();
     const folder = sub ? csvFolder ? `${csvFolder}/${sub}` : sub : csvFolder;
-    return (0, import_obsidian.normalizePath)(`${folder}/${title}.md`);
+    return (0, import_obsidian2.normalizePath)(`${folder}/${title}.md`);
   }
   notesFileExists(row) {
     return !!this.app.vault.getAbstractFileByPath(this.notesFilePath(row));
@@ -46351,7 +46357,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
       if (folderPath && !this.app.vault.getAbstractFileByPath(folderPath))
         await this.app.vault.createFolder(folderPath);
       file = await this.app.vault.create(path, content);
-      new import_obsidian.Notice(`Created: ${file.name}`);
+      new import_obsidian2.Notice(`Created: ${file.name}`);
     }
     await this.app.workspace.getLeaf("tab").openFile(file);
   }
@@ -46384,7 +46390,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
         this.rows.push(row);
         this.scheduleSave();
         this.renderView();
-        new import_obsidian.Notice(`Added: ${this.getTitle(row)}`);
+        new import_obsidian2.Notice(`Added: ${this.getTitle(row)}`);
       }
     ).open();
   }
@@ -46415,7 +46421,7 @@ var XLSXCardView = class extends import_obsidian.FileView {
       root.empty();
       root.addClass("csv-card-view-root");
       this.renderComponent.unload();
-      this.renderComponent = new import_obsidian.Component();
+      this.renderComponent = new import_obsidian2.Component();
       this.renderComponent.load();
       this.renderToolbar(root);
       this.contentArea = root.createDiv({ cls: "csv-content-area" });
@@ -47020,18 +47026,18 @@ var XLSXCardView = class extends import_obsidian.FileView {
     }
     try {
       const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
-      if (existingDashboard && existingDashboard instanceof import_obsidian.TFile) {
+      if (existingDashboard && existingDashboard instanceof import_obsidian2.TFile) {
         await this.app.vault.modify(existingDashboard, dashboardContent);
-        new import_obsidian.Notice(`Updated: ${dashboardPath}`);
+        new import_obsidian2.Notice(`Updated: ${dashboardPath}`);
       } else {
         await this.app.vault.create(dashboardPath, dashboardContent);
-        new import_obsidian.Notice(`Created: ${dashboardPath}`);
+        new import_obsidian2.Notice(`Created: ${dashboardPath}`);
       }
     } catch (e) {
       const f = this.app.vault.getAbstractFileByPath(dashboardPath);
-      if (f instanceof import_obsidian.TFile) {
+      if (f instanceof import_obsidian2.TFile) {
         await this.app.vault.modify(f, dashboardContent);
-        new import_obsidian.Notice(`Updated: ${dashboardPath}`);
+        new import_obsidian2.Notice(`Updated: ${dashboardPath}`);
       }
     }
   }
@@ -47365,7 +47371,7 @@ if (!csvData || !csvData.length) {
     });
     card.addEventListener("click", (e) => e.stopPropagation());
     card.addEventListener("contextmenu", (e) => {
-      const menu = new import_obsidian.Menu();
+      const menu = new import_obsidian2.Menu();
       menu.addItem((i) => i.setTitle("Open / Create Notes file").setIcon("file-text").onClick(() => this.openOrCreateNotes(row)));
       if (sc) {
         menu.addSeparator();
@@ -47487,7 +47493,7 @@ if (!csvData || !csvData.length) {
       window.clearTimeout(this.saveTimer);
   }
 };
-var CardViewSettingTab = class extends import_obsidian.PluginSettingTab {
+var CardViewSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -47496,38 +47502,38 @@ var CardViewSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "XLSX Card View" });
-    new import_obsidian.Setting(containerEl).setName("Default view mode").addDropdown((d) => d.addOption("kanban-genre", "By Genre").addOption("table", "Table").setValue(this.plugin.settings.defaultMode).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Default view mode").addDropdown((d) => d.addOption("kanban-genre", "By Genre").addOption("table", "Table").setValue(this.plugin.settings.defaultMode).onChange(async (v) => {
       this.plugin.settings.defaultMode = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Status column name").addText((t) => t.setValue(this.plugin.settings.statusColumn).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Status column name").addText((t) => t.setValue(this.plugin.settings.statusColumn).onChange(async (v) => {
       this.plugin.settings.statusColumn = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Category/Genre column name").addText((t) => t.setValue(this.plugin.settings.categoryColumn).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Category/Genre column name").addText((t) => t.setValue(this.plugin.settings.categoryColumn).onChange(async (v) => {
       this.plugin.settings.categoryColumn = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Notes column names").setDesc("Comma-separated.").addText((t) => t.setValue(this.plugin.settings.notesColumns.join(", ")).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Notes column names").setDesc("Comma-separated.").addText((t) => t.setValue(this.plugin.settings.notesColumns.join(", ")).onChange(async (v) => {
       this.plugin.settings.notesColumns = v.split(",").map((s) => s.trim());
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Select/dropdown columns").setDesc("Comma-separated column names that use a dropdown picker.").addText((t) => t.setValue(this.plugin.settings.selectColumns.join(", ")).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Select/dropdown columns").setDesc("Comma-separated column names that use a dropdown picker.").addText((t) => t.setValue(this.plugin.settings.selectColumns.join(", ")).onChange(async (v) => {
       this.plugin.settings.selectColumns = v.split(",").map((s) => s.trim());
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Notes subfolder").addText((t) => t.setPlaceholder("Notes").setValue(this.plugin.settings.notesSubfolder).onChange(async (v) => {
+    new import_obsidian2.Setting(containerEl).setName("Notes subfolder").addText((t) => t.setPlaceholder("Notes").setValue(this.plugin.settings.notesSubfolder).onChange(async (v) => {
       this.plugin.settings.notesSubfolder = v;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Reset column widths").addButton((b) => b.setButtonText("Reset").onClick(async () => {
+    new import_obsidian2.Setting(containerEl).setName("Reset column widths").addButton((b) => b.setButtonText("Reset").onClick(async () => {
       this.plugin.settings.columnWidths = {};
       await this.plugin.saveSettings();
-      new import_obsidian.Notice("Column widths reset.");
+      new import_obsidian2.Notice("Column widths reset.");
     }));
   }
 };
-var CardViewPlugin = class extends import_obsidian.Plugin {
+var CardViewPlugin = class extends import_obsidian2.Plugin {
   constructor() {
     super(...arguments);
     this.settings = DEFAULT_SETTINGS;
@@ -47548,7 +47554,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
       btn.addEventListener("click", async () => {
         const currentPath = ctx.sourcePath;
         const file = this.app.vault.getAbstractFileByPath(currentPath);
-        if (file instanceof import_obsidian.TFile) {
+        if (file instanceof import_obsidian2.TFile) {
           const leaf = this.app.workspace.activeLeaf;
           if (leaf) {
             await leaf.openFile(file, { state: { mode: "preview" } });
@@ -47575,7 +47581,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
     const baseFolder = (_b = (_a = currentFile == null ? void 0 : currentFile.parent) == null ? void 0 : _a.path) != null ? _b : "";
     const fullPath = filePath.includes("/") ? filePath : baseFolder ? `${baseFolder}/${filePath}` : filePath;
     const file = this.app.vault.getAbstractFileByPath(fullPath);
-    if (!file || !(file instanceof import_obsidian.TFile)) {
+    if (!file || !(file instanceof import_obsidian2.TFile)) {
       el.createEl("p", { text: `Error: File not found: ${fullPath}`, cls: "csv-add-error" });
       return;
     }
@@ -47720,7 +47726,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
       });
       const hasToggle = binaryCols.some((h) => toggleStates[h]);
       if (!hasDate && !hasOtherValue && !hasToggle) {
-        new import_obsidian.Notice("Please fill at least one field");
+        new import_obsidian2.Notice("Please fill at least one field");
         return;
       }
       let currentRows = [];
@@ -47746,7 +47752,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           currentRows = result.data;
         }
       } catch (e) {
-        new import_obsidian.Notice(`Error reading file: ${e}`);
+        new import_obsidian2.Notice(`Error reading file: ${e}`);
         return;
       }
       let isUpdate = false;
@@ -47799,7 +47805,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           const csv = import_papaparse.default.unparse(rows2, { columns: headers });
           await this.app.vault.modify(file, csv);
         }
-        new import_obsidian.Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);
+        new import_obsidian2.Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);
         binaryCols.forEach((h) => {
           toggleStates[h] = false;
           const checkbox = inputs[h];
@@ -47824,7 +47830,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
         form.querySelectorAll(".csv-add-toggle").forEach((t) => t.classList.remove("checked"));
         setTimeout(async () => {
           const noteFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-          if (noteFile instanceof import_obsidian.TFile) {
+          if (noteFile instanceof import_obsidian2.TFile) {
             const leaf = this.app.workspace.activeLeaf;
             if (leaf) {
               await leaf.openFile(noteFile, { state: { mode: "preview" } });
@@ -47832,7 +47838,7 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           }
         }, 300);
       } catch (e) {
-        new import_obsidian.Notice(`Error saving: ${e}`);
+        new import_obsidian2.Notice(`Error saving: ${e}`);
       }
     });
   }
