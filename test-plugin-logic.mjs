@@ -544,6 +544,43 @@ test("filterRows: searches across all specified columns", () => {
   assertEqual(filterRows(rows, ["Title"], "smith").length, 0); // Only searching Title
 });
 
+console.log("\n=== Date String Conversion ===\n");
+
+// Simulates the pattern used in mobile dashboard for safe date conversion
+function toDateString(dateVal) {
+  return dateVal?.toString?.() ?? String(dateVal ?? "");
+}
+
+test("toDateString: handles string dates", () => {
+  assertEqual(toDateString("2025-05-22"), "2025-05-22");
+  assertEqual(toDateString("2025-01-01"), "2025-01-01");
+});
+
+test("toDateString: handles null/undefined", () => {
+  assertEqual(toDateString(null), "");
+  assertEqual(toDateString(undefined), "");
+});
+
+test("toDateString: handles objects with toString", () => {
+  const luxonLike = { toString: () => "2025-05-22" };
+  assertEqual(toDateString(luxonLike), "2025-05-22");
+});
+
+test("toDateString: handles Date objects", () => {
+  const date = new Date("2025-05-22T00:00:00Z");
+  const result = toDateString(date);
+  // Date.toString() returns something like "Thu May 22 2025..."
+  assertEqual(result.includes("2025"), true);
+});
+
+test("toDateString: slice for MM-DD works after conversion", () => {
+  assertEqual(toDateString("2025-05-22").slice(5), "05-22");
+  assertEqual(toDateString("2025-01-15").slice(5), "01-15");
+  // Even if object, after toString and slice
+  const luxonLike = { toString: () => "2025-12-31" };
+  assertEqual(toDateString(luxonLike).slice(5), "12-31");
+});
+
 // ============================================================================
 // Summary
 // ============================================================================

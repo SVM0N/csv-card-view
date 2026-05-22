@@ -344,7 +344,19 @@ Long non-select field values in kanban cards are truncated at 40 chars with `…
 
 - [x] **Search/filter** — search bar in kanban and table views filters entries by any column value
 
-- [ ] **Sort controls** — no column sorting in either view
+- [x] **Sort controls** — added sort toggle (↓ Newest / ↑ Oldest) in table view for files with date columns. Setting persisted per-file via `sortNewestFirst` in FileConfig.
+
+### Mobile dashboard improvements (in progress)
+
+- [ ] **Remove page title** — the `# filename - Mobile` title is redundant since Obsidian shows the filename in the tab. Remove it from generated dashboard.
+
+- [ ] **Auto-refresh after add** — after submitting the csv-add form, the Recent Entries dataview table doesn't update. Need to trigger a page refresh or force Dataview to re-execute.
+
+- [ ] **Manual refresh button** — add a "🔄 Refresh" button above Recent Entries that forces a page reload to update Dataview results.
+
+- [ ] **Fix column word breaks** — habit column headers like "Journal" break mid-word ("Journa-l"). Add `white-space: nowrap` to table headers in the dataviewjs code.
+
+- [ ] **CSV-XLSX sync on entry operations** — when adding/updating entries via mobile, the CSV helper file syncs with XLSX. Ensure deleting entries also syncs and doesn't create empty rows.
 
 - [ ] **Multi-value select for Category** — the picker sets a single string. Proper multi-select with individual chips would be better (comma-split for kanban columns already works on the read side)
 

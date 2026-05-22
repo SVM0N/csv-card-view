@@ -32,6 +32,7 @@ interface FileConfig {
   statusColumn?: string;
   habitColumns?: string[];  // Columns to track as habits in dashboard view
   defaultMode?: ViewMode;
+  sortNewestFirst?: boolean;  // Sort by date column, newest first
 }
 
 interface CardViewSettings {
@@ -850,6 +851,22 @@ export class XLSXCardView extends FileView {
       });
     }
 
+    // Sort order toggle (only for table view with date column)
+    if (this.mode === "table" && this.hasDateColumn()) {
+      const sortNewest = this.fileCfg.sortNewestFirst ?? true;
+      const sortBtn = ctrl.createEl("button", {
+        cls: `csv-cfg-btn ${sortNewest ? "active" : ""}`,
+        text: sortNewest ? "↓ Newest" : "↑ Oldest",
+        title: "Toggle sort order"
+      });
+      sortBtn.addEventListener("click", () => {
+        const cfg = this.fileCfg;
+        cfg.sortNewestFirst = !(cfg.sortNewestFirst ?? true);
+        this.saveFileCfg(cfg);
+        this.renderView();
+      });
+    }
+
     // Per-file column config
     const cfgBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "⚙ Columns", title: "Configure columns for this file" });
     cfgBtn.addEventListener("click", () => {
@@ -877,14 +894,32 @@ export class XLSXCardView extends FileView {
   // ── Search filtering ─────────────────────────────────────────────────────────
 
   private getFilteredRows(): CSVRow[] {
-    if (!this.searchQuery.trim()) return this.rows;
-    const query = this.searchQuery.toLowerCase().trim();
-    return this.rows.filter(row => {
-      return this.headers.some(h => {
-        const val = row[h] ?? "";
-        return val.toLowerCase().includes(query);
+    let result = this.rows;
+
+    // Filter by search query
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase().trim();
+      result = result.filter(row => {
+        return this.headers.some(h => {
+          const val = row[h] ?? "";
+          return val.toLowerCase().includes(query);
+        });
       });
-    });
+    }
+
+    // Sort by date if in table view and has date column
+    const dateCol = this.getDateCol();
+    if (this.mode === "table" && dateCol) {
+      const sortNewest = this.fileCfg.sortNewestFirst ?? true;
+      result = [...result].sort((a, b) => {
+        const dateA = a[dateCol] ?? "";
+        const dateB = b[dateCol] ?? "";
+        const cmp = dateA.localeCompare(dateB);
+        return sortNewest ? -cmp : cmp;
+      });
+    }
+
+    return result;
   }
 
   private getDateCol(): string | null {
@@ -1440,17 +1475,24 @@ export class XLSXCardView extends FileView {
       const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
       csvPath = `${helperFolder}/${this.file.basename}.csv`;
 
-      // Create helper folder if needed
-      if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-        await this.app.vault.createFolder(helperFolder);
-      }
+      // Create helper folder if needed (try-catch for race conditions)
+      try {
+        if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+          await this.app.vault.createFolder(helperFolder);
+        }
+      } catch { /* folder exists */ }
 
       const csvContent = Papa.unparse(this.rows, { columns: this.headers });
       const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-      if (existingCsv && existingCsv instanceof TFile) {
-        await this.app.vault.modify(existingCsv, csvContent);
-      } else {
-        await this.app.vault.create(csvPath, csvContent);
+      try {
+        if (existingCsv && existingCsv instanceof TFile) {
+          await this.app.vault.modify(existingCsv, csvContent);
+        } else {
+          await this.app.vault.create(csvPath, csvContent);
+        }
+      } catch { /* file exists, try modify */
+        const f = this.app.vault.getAbstractFileByPath(csvPath);
+        if (f instanceof TFile) await this.app.vault.modify(f, csvContent);
       }
     }
 
@@ -1472,23 +1514,29 @@ export class XLSXCardView extends FileView {
       dashboardContent = this.generateGenericMobileDashboard(csvPath);
     }
 
-    const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
-    if (existingDashboard && existingDashboard instanceof TFile) {
-      await this.app.vault.modify(existingDashboard, dashboardContent);
-      new Notice(`Updated: ${dashboardPath}`);
-    } else {
-      await this.app.vault.create(dashboardPath, dashboardContent);
-      new Notice(`Created: ${dashboardPath}`);
+    try {
+      const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+      if (existingDashboard && existingDashboard instanceof TFile) {
+        await this.app.vault.modify(existingDashboard, dashboardContent);
+        new Notice(`Updated: ${dashboardPath}`);
+      } else {
+        await this.app.vault.create(dashboardPath, dashboardContent);
+        new Notice(`Created: ${dashboardPath}`);
+      }
+    } catch {
+      // File exists but wasn't found - try modify
+      const f = this.app.vault.getAbstractFileByPath(dashboardPath);
+      if (f instanceof TFile) {
+        await this.app.vault.modify(f, dashboardContent);
+        new Notice(`Updated: ${dashboardPath}`);
+      }
     }
   }
 
   private generateHabitMobileDashboard(habitCols: string[], dateCol: string, csvPath: string): string {
     const fileName = this.file?.name ?? "";
-    // Use short column names for compact display
-    const shortNames = habitCols.map(h => {
-      const t = titleCase(h);
-      return t.length > 6 ? t.slice(0, 5) + "." : t;
-    });
+    // Use full column names - table is scrollable
+    const labels = habitCols.map(h => titleCase(h));
 
     return `# ${this.file?.basename} - Mobile
 
@@ -1510,13 +1558,26 @@ if (!csvData || !csvData.length) {
   const data = csvData.array();
   const recent = data.slice(-10).reverse();
   const habits = [${habitCols.map(h => `"${h}"`).join(", ")}];
-  const labels = [${shortNames.map(h => `"${h}"`).join(", ")}];
+  const labels = [${labels.map(h => `"${h}"`).join(", ")}];
+
+  const container = dv.container;
+  container.style.overflowX = "auto";
+  container.style.fontSize = "12px";
 
   dv.table(
     ["Date", ...labels],
     recent.map(r => {
-      const date = r["${dateCol}"] || "";
-      const shortDate = date.slice(5); // MM-DD format
+      const dateVal = r["${dateCol}"];
+      // Handle Luxon DateTime, Date object, or string
+      let shortDate = "";
+      if (dateVal?.toFormat) {
+        shortDate = dateVal.toFormat("MM-dd");
+      } else if (dateVal instanceof Date) {
+        shortDate = (dateVal.getMonth()+1).toString().padStart(2,"0") + "-" + dateVal.getDate().toString().padStart(2,"0");
+      } else {
+        const s = String(dateVal ?? "");
+        shortDate = s.length >= 10 ? s.slice(5, 10) : s;
+      }
       return [shortDate, ...habits.map(h => r[h] == "1" || r[h] == "true" ? "✓" : "·")];
     })
   );
@@ -2131,18 +2192,25 @@ export default class CardViewPlugin extends Plugin {
           const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
           const csvPath = `${helperFolder}/${file.basename}.csv`;
 
-          // Ensure helper folder exists
-          if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-            await this.app.vault.createFolder(helperFolder);
-          }
+          // Ensure helper folder exists (try-catch for race conditions)
+          try {
+            if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+              await this.app.vault.createFolder(helperFolder);
+            }
+          } catch { /* folder exists */ }
 
           // Write CSV
           const csvContent = Papa.unparse(rows, { columns: headers });
-          const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-          if (existingCsv && existingCsv instanceof TFile) {
-            await this.app.vault.modify(existingCsv, csvContent);
-          } else {
-            await this.app.vault.create(csvPath, csvContent);
+          try {
+            const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+            if (existingCsv && existingCsv instanceof TFile) {
+              await this.app.vault.modify(existingCsv, csvContent);
+            } else {
+              await this.app.vault.create(csvPath, csvContent);
+            }
+          } catch {
+            const f = this.app.vault.getAbstractFileByPath(csvPath);
+            if (f instanceof TFile) await this.app.vault.modify(f, csvContent);
           }
         } else {
           const csv = Papa.unparse(rows, { columns: headers });

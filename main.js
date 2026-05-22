@@ -46964,15 +46964,24 @@ var XLSXCardView = class extends import_obsidian.FileView {
     if (this.isXlsx) {
       const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
       csvPath = `${helperFolder}/${this.file.basename}.csv`;
-      if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-        await this.app.vault.createFolder(helperFolder);
+      try {
+        if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+          await this.app.vault.createFolder(helperFolder);
+        }
+      } catch (e) {
       }
       const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
       const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-      if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
-        await this.app.vault.modify(existingCsv, csvContent);
-      } else {
-        await this.app.vault.create(csvPath, csvContent);
+      try {
+        if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
+          await this.app.vault.modify(existingCsv, csvContent);
+        } else {
+          await this.app.vault.create(csvPath, csvContent);
+        }
+      } catch (e) {
+        const f = this.app.vault.getAbstractFileByPath(csvPath);
+        if (f instanceof import_obsidian.TFile)
+          await this.app.vault.modify(f, csvContent);
       }
     }
     const dateCol = this.getDateCol();
@@ -46986,22 +46995,27 @@ var XLSXCardView = class extends import_obsidian.FileView {
     } else {
       dashboardContent = this.generateGenericMobileDashboard(csvPath);
     }
-    const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
-    if (existingDashboard && existingDashboard instanceof import_obsidian.TFile) {
-      await this.app.vault.modify(existingDashboard, dashboardContent);
-      new import_obsidian.Notice(`Updated: ${dashboardPath}`);
-    } else {
-      await this.app.vault.create(dashboardPath, dashboardContent);
-      new import_obsidian.Notice(`Created: ${dashboardPath}`);
+    try {
+      const existingDashboard = this.app.vault.getAbstractFileByPath(dashboardPath);
+      if (existingDashboard && existingDashboard instanceof import_obsidian.TFile) {
+        await this.app.vault.modify(existingDashboard, dashboardContent);
+        new import_obsidian.Notice(`Updated: ${dashboardPath}`);
+      } else {
+        await this.app.vault.create(dashboardPath, dashboardContent);
+        new import_obsidian.Notice(`Created: ${dashboardPath}`);
+      }
+    } catch (e) {
+      const f = this.app.vault.getAbstractFileByPath(dashboardPath);
+      if (f instanceof import_obsidian.TFile) {
+        await this.app.vault.modify(f, dashboardContent);
+        new import_obsidian.Notice(`Updated: ${dashboardPath}`);
+      }
     }
   }
   generateHabitMobileDashboard(habitCols, dateCol, csvPath) {
     var _a, _b, _c;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
-    const shortNames = habitCols.map((h) => {
-      const t = titleCase(h);
-      return t.length > 6 ? t.slice(0, 5) + "." : t;
-    });
+    const labels = habitCols.map((h) => titleCase(h));
     return `# ${(_c = this.file) == null ? void 0 : _c.basename} - Mobile
 
 > Requires **Dataview** plugin with DataviewJS enabled.
@@ -47022,13 +47036,26 @@ if (!csvData || !csvData.length) {
   const data = csvData.array();
   const recent = data.slice(-10).reverse();
   const habits = [${habitCols.map((h) => `"${h}"`).join(", ")}];
-  const labels = [${shortNames.map((h) => `"${h}"`).join(", ")}];
+  const labels = [${labels.map((h) => `"${h}"`).join(", ")}];
+
+  const container = dv.container;
+  container.style.overflowX = "auto";
+  container.style.fontSize = "12px";
 
   dv.table(
     ["Date", ...labels],
     recent.map(r => {
-      const date = r["${dateCol}"] || "";
-      const shortDate = date.slice(5); // MM-DD format
+      const dateVal = r["${dateCol}"];
+      // Handle Luxon DateTime, Date object, or string
+      let shortDate = "";
+      if (dateVal?.toFormat) {
+        shortDate = dateVal.toFormat("MM-dd");
+      } else if (dateVal instanceof Date) {
+        shortDate = (dateVal.getMonth()+1).toString().padStart(2,"0") + "-" + dateVal.getDate().toString().padStart(2,"0");
+      } else {
+        const s = String(dateVal ?? "");
+        shortDate = s.length >= 10 ? s.slice(5, 10) : s;
+      }
       return [shortDate, ...habits.map(h => r[h] == "1" || r[h] == "true" ? "\u2713" : "\xB7")];
     })
   );
@@ -47685,15 +47712,24 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           const csvFolder = (_b2 = (_a2 = file.parent) == null ? void 0 : _a2.path) != null ? _b2 : "";
           const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
           const csvPath = `${helperFolder}/${file.basename}.csv`;
-          if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-            await this.app.vault.createFolder(helperFolder);
+          try {
+            if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
+              await this.app.vault.createFolder(helperFolder);
+            }
+          } catch (e) {
           }
           const csvContent = import_papaparse.default.unparse(rows, { columns: headers });
-          const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-          if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
-            await this.app.vault.modify(existingCsv, csvContent);
-          } else {
-            await this.app.vault.create(csvPath, csvContent);
+          try {
+            const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
+            if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
+              await this.app.vault.modify(existingCsv, csvContent);
+            } else {
+              await this.app.vault.create(csvPath, csvContent);
+            }
+          } catch (e) {
+            const f = this.app.vault.getAbstractFileByPath(csvPath);
+            if (f instanceof import_obsidian.TFile)
+              await this.app.vault.modify(f, csvContent);
           }
         } else {
           const csv = import_papaparse.default.unparse(rows, { columns: headers });
