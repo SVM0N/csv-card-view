@@ -46127,12 +46127,11 @@ var XLSXCardView = class extends import_obsidian.FileView {
         const buf = writeSync(wb, { type: "array", bookType: "xlsx" });
         await this.app.vault.modifyBinary(this.file, buf);
         const csvFolder = (_b = (_a = this.file.parent) == null ? void 0 : _a.path) != null ? _b : "";
-        const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+        const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
         const csvPath = `${helperFolder}/${this.file.basename}.csv`;
-        const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-        if (existingCsv instanceof import_obsidian.TFile) {
+        if (await this.app.vault.adapter.exists(csvPath)) {
           const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
-          await this.app.vault.modify(existingCsv, csvContent);
+          await this.app.vault.adapter.write(csvPath, csvContent);
         }
       } else {
         const esc = (v) => v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
@@ -47000,27 +46999,13 @@ var XLSXCardView = class extends import_obsidian.FileView {
     const dashboardPath = csvFolder ? `${csvFolder}/${this.file.basename} - Mobile.md` : `${this.file.basename} - Mobile.md`;
     let csvPath = this.file.path;
     if (this.isXlsx) {
-      const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+      const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
       csvPath = `${helperFolder}/${this.file.basename}.csv`;
-      try {
-        if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-          await this.app.vault.createFolder(helperFolder);
-        }
-      } catch (e) {
+      if (!await this.app.vault.adapter.exists(helperFolder)) {
+        await this.app.vault.adapter.mkdir(helperFolder);
       }
       const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
-      const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-      try {
-        if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
-          await this.app.vault.modify(existingCsv, csvContent);
-        } else {
-          await this.app.vault.create(csvPath, csvContent);
-        }
-      } catch (e) {
-        const f = this.app.vault.getAbstractFileByPath(csvPath);
-        if (f instanceof import_obsidian.TFile)
-          await this.app.vault.modify(f, csvContent);
-      }
+      await this.app.vault.adapter.write(csvPath, csvContent);
     }
     const dateCol = this.getDateCol();
     const categoryCol = this.getCategoryCol();
@@ -47803,27 +47788,13 @@ var CardViewPlugin = class extends import_obsidian.Plugin {
           const buf = writeSync(wb, { type: "array", bookType: "xlsx" });
           await this.app.vault.modifyBinary(file, buf);
           const csvFolder = (_b2 = (_a2 = file.parent) == null ? void 0 : _a2.path) != null ? _b2 : "";
-          const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+          const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
           const csvPath = `${helperFolder}/${file.basename}.csv`;
-          try {
-            if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-              await this.app.vault.createFolder(helperFolder);
-            }
-          } catch (e) {
+          if (!await this.app.vault.adapter.exists(helperFolder)) {
+            await this.app.vault.adapter.mkdir(helperFolder);
           }
           const csvContent = import_papaparse.default.unparse(rows2, { columns: headers });
-          try {
-            const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-            if (existingCsv && existingCsv instanceof import_obsidian.TFile) {
-              await this.app.vault.modify(existingCsv, csvContent);
-            } else {
-              await this.app.vault.create(csvPath, csvContent);
-            }
-          } catch (e) {
-            const f = this.app.vault.getAbstractFileByPath(csvPath);
-            if (f instanceof import_obsidian.TFile)
-              await this.app.vault.modify(f, csvContent);
-          }
+          await this.app.vault.adapter.write(csvPath, csvContent);
         } else {
           const csv = import_papaparse.default.unparse(rows2, { columns: headers });
           await this.app.vault.modify(file, csv);

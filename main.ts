@@ -574,14 +574,13 @@ export class XLSXCardView extends FileView {
         const buf: ArrayBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
         await this.app.vault.modifyBinary(this.file, buf);
 
-        // Also sync to CSV helper file if it exists (for Dataview mobile dashboard)
+        // Also sync to CSV helper file if it exists (use adapter for helper folder)
         const csvFolder = this.file.parent?.path ?? "";
-        const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+        const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
         const csvPath = `${helperFolder}/${this.file.basename}.csv`;
-        const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-        if (existingCsv instanceof TFile) {
+        if (await this.app.vault.adapter.exists(csvPath)) {
           const csvContent = Papa.unparse(this.rows, { columns: this.headers });
-          await this.app.vault.modify(existingCsv, csvContent);
+          await this.app.vault.adapter.write(csvPath, csvContent);
         }
       } else {
         const esc = (v: string) => (v.includes(",") || v.includes('"') || v.includes("\n")) ? `"${v.replace(/"/g,'""')}"` : v;
@@ -1479,31 +1478,18 @@ export class XLSXCardView extends FileView {
     const csvFolder = this.file.parent?.path ?? "";
     const dashboardPath = csvFolder ? `${csvFolder}/${this.file.basename} - Mobile.md` : `${this.file.basename} - Mobile.md`;
 
-    // For XLSX files, export a CSV copy to hidden helper folder for Dataview
+    // For XLSX files, export a CSV copy to helper folder for Dataview
     let csvPath = this.file.path;
     if (this.isXlsx) {
-      const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+      const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
       csvPath = `${helperFolder}/${this.file.basename}.csv`;
 
-      // Create helper folder if needed (try-catch for race conditions)
-      try {
-        if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-          await this.app.vault.createFolder(helperFolder);
-        }
-      } catch { /* folder exists */ }
-
-      const csvContent = Papa.unparse(this.rows, { columns: this.headers });
-      const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-      try {
-        if (existingCsv && existingCsv instanceof TFile) {
-          await this.app.vault.modify(existingCsv, csvContent);
-        } else {
-          await this.app.vault.create(csvPath, csvContent);
-        }
-      } catch { /* file exists, try modify */
-        const f = this.app.vault.getAbstractFileByPath(csvPath);
-        if (f instanceof TFile) await this.app.vault.modify(f, csvContent);
+      // Create helper folder and CSV using adapter (helper folder not indexed by vault)
+      if (!await this.app.vault.adapter.exists(helperFolder)) {
+        await this.app.vault.adapter.mkdir(helperFolder);
       }
+      const csvContent = Papa.unparse(this.rows, { columns: this.headers });
+      await this.app.vault.adapter.write(csvPath, csvContent);
     }
 
     // Determine file type (habit tracker vs library)
@@ -2257,29 +2243,15 @@ export default class CardViewPlugin extends Plugin {
 
           // Also update the CSV helper file for Dataview
           const csvFolder = file.parent?.path ?? "";
-          const helperFolder = csvFolder ? `${csvFolder}/.csv-helper` : ".csv-helper";
+          const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
           const csvPath = `${helperFolder}/${file.basename}.csv`;
 
-          // Ensure helper folder exists (try-catch for race conditions)
-          try {
-            if (!this.app.vault.getAbstractFileByPath(helperFolder)) {
-              await this.app.vault.createFolder(helperFolder);
-            }
-          } catch { /* folder exists */ }
-
-          // Write CSV
-          const csvContent = Papa.unparse(rows, { columns: headers });
-          try {
-            const existingCsv = this.app.vault.getAbstractFileByPath(csvPath);
-            if (existingCsv && existingCsv instanceof TFile) {
-              await this.app.vault.modify(existingCsv, csvContent);
-            } else {
-              await this.app.vault.create(csvPath, csvContent);
-            }
-          } catch {
-            const f = this.app.vault.getAbstractFileByPath(csvPath);
-            if (f instanceof TFile) await this.app.vault.modify(f, csvContent);
+          // Ensure helper folder exists and write CSV (use adapter for helper folder)
+          if (!await this.app.vault.adapter.exists(helperFolder)) {
+            await this.app.vault.adapter.mkdir(helperFolder);
           }
+          const csvContent = Papa.unparse(rows, { columns: headers });
+          await this.app.vault.adapter.write(csvPath, csvContent);
         } else {
           const csv = Papa.unparse(rows, { columns: headers });
           await this.app.vault.modify(file, csv);
