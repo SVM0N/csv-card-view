@@ -1,14 +1,14 @@
 /**
- * Creates test fixture xlsx file for the plugin
- * Run with: node create-test-fixture.mjs
+ * Creates sample data xlsx/csv files for testing the plugin
+ * Run with: node create-sample-data.mjs
  */
 
 import * as XLSX from 'xlsx';
 import { mkdirSync, existsSync } from 'fs';
 
-// Create test-fixtures directory
-if (!existsSync('test-fixtures')) {
-  mkdirSync('test-fixtures');
+// Create sample-data directory
+if (!existsSync('sample-data')) {
+  mkdirSync('sample-data');
 }
 
 // Sample data that exercises various plugin features
@@ -43,8 +43,8 @@ ws['!cols'] = [
 XLSX.utils.book_append_sheet(wb, ws, 'Books');
 
 // Write file
-XLSX.writeFile(wb, 'test-fixtures/test.xlsx');
-console.log('Created test-fixtures/test.xlsx with', data.length - 1, 'sample entries');
+XLSX.writeFile(wb, 'sample-data/test.xlsx');
+console.log('Created sample-data/test.xlsx with', data.length - 1, 'sample entries');
 
 // Also create a CSV version
 const csvData = data.map(row =>
@@ -57,5 +57,5 @@ const csvData = data.map(row =>
 ).join('\n');
 
 import { writeFileSync } from 'fs';
-writeFileSync('test-fixtures/test.csv', csvData);
-console.log('Created test-fixtures/test.csv');
+writeFileSync('sample-data/test.csv', csvData);
+console.log('Created sample-data/test.csv');
