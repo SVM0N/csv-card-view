@@ -1,4 +1,11 @@
 node_modules/
 .DS_Store
-*.xlsx
 Test/
+
+# Ignore user data files (keep test fixtures)
+/*.xlsx
+/*.csv
+books.xlsx
+dictionary.xlsx
+movies.xlsx
+quotes.xlsx

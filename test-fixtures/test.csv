@@ -1,0 +1,18 @@
+Title,Author,Category,Status,Rating,Notes
+The Great Gatsby,F. Scott Fitzgerald,"Fiction, Classic",Finished,5,"A masterpiece of American literature.
+
+Explores themes of wealth and the American Dream."
+1984,George Orwell,"Fiction, Dystopian",Finished,5,Chilling and prescient.
+Dune,Frank Herbert,"Sci-Fi, Epic",In progress,4,Complex world-building.
+The Hobbit,J.R.R. Tolkien,"Fantasy, Adventure",Not started,,
+Clean Code,Robert C. Martin,"Programming, Non-Fiction",Finished,4,"Essential reading for developers.
+
+## Key Takeaways
+- Write readable code
+- Keep functions small
+- Use meaningful names"
+Project Hail Mary,Andy Weir,Sci-Fi,In progress,5,Gripping from start to finish!
+Sapiens,Yuval Noah Harari,"History, Non-Fiction",Not started,,Recommended by multiple friends.
+"Test: Special ""Chars""","Author, With Comma",Edge Case,Finished,3,Tests quoting and escaping.
+Unicode Test 日本語,Tëst Àuthør,International,Finished,4,Tests unicode handling: émojis 🎉📚
+Very Long Notes Test,Test Author,Test,Finished,3,"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
