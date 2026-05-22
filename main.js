@@ -47150,12 +47150,12 @@ if (!csvData || !csvData.length) {
 `;
   }
   generateLibraryMobileDashboard(csvPath) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
-    const titleKey = this.titleKey();
-    const categoryCol = this.getCategoryCol();
-    const statusCol = this.getStatusCol();
-    const displayCols = [titleKey, categoryCol, statusCol].filter(Boolean);
+    const titleKey = (_c = this.titleKey()) != null ? _c : "Title";
+    const categoryCol = (_d = this.getCategoryCol()) != null ? _d : "Category";
+    const statusCol = (_e = this.getStatusCol()) != null ? _e : "Status";
+    const authorKey = this.authorKey();
     return `## Add Entry
 
 \`\`\`csv-add
@@ -47173,36 +47173,110 @@ if (!csvData || !csvData.length) {
   dv.paragraph("No data found");
 } else {
   const data = csvData.array();
-
   const container = dv.container;
-  container.style.cssText = "font-size:14px;";
+
+  // Keys
+  const titleKey = "${titleKey}";
+  const categoryCol = "${categoryCol}";
+  const statusCol = "${statusCol}";
+  const authorKey = "${authorKey || ""}";
+
+  // View state
+  const viewKey = "csv-mobile-view-" + dv.current().file.path;
+  const modeKey = "csv-mobile-mode-" + dv.current().file.path;
+  let viewMode = localStorage.getItem(modeKey) || "kanban";
+
+  // Inject styles
+  const style = container.createEl("style");
+  style.textContent = \`
+    .csv-m-toggle { display:flex; gap:8px; margin-bottom:16px; }
+    .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
+    .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
+    .csv-m-section { margin-bottom:20px; }
+    .csv-m-section summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:8px; font-weight:600; font-size:13px; letter-spacing:0.03em; display:flex; align-items:center; gap:8px; user-select:none; border:1px solid var(--background-modifier-border); }
+    .csv-m-section summary::-webkit-details-marker { display:none; }
+    .csv-m-section summary .arrow { font-size:10px; transition:transform 0.2s; }
+    .csv-m-section[open] summary .arrow { transform:rotate(90deg); }
+    .csv-m-section summary .count { font-weight:400; font-size:11px; opacity:0.5; margin-left:auto; }
+    .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:12px 0; }
+    .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); }
+    .csv-m-card-title { font-weight:600; font-size:14px; margin-bottom:2px; }
+    .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
+    .csv-m-card-status { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; margin-top:6px; background:var(--background-modifier-border); color:var(--text-muted); }
+    .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(90,140,74,0.2); color:#5A8C4A; }
+    .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(74,122,155,0.2); color:#4A7A9B; }
+  \`;
 
   // View toggle
-  const viewKey = "csv-mobile-view-" + dv.current().file.path;
-  let showAll = localStorage.getItem(viewKey) === "all";
-
-  const toggleWrap = container.createEl("div");
-  toggleWrap.style.cssText = "display:flex;gap:8px;margin-bottom:16px;";
-  const recentBtn = toggleWrap.createEl("button", { text: "Recent" });
-  const allBtn = toggleWrap.createEl("button", { text: "All " + data.length });
-
-  [recentBtn, allBtn].forEach((btn, i) => {
-    const isActive = (i === 0 && !showAll) || (i === 1 && showAll);
-    btn.style.cssText = "padding:6px 12px;border:none;background:" + (isActive ? "var(--background-secondary)" : "transparent") + ";color:" + (isActive ? "var(--text-normal)" : "var(--text-muted)") + ";font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;";
-    btn.onclick = () => { localStorage.setItem(viewKey, i === 0 ? "recent" : "all"); location.reload(); };
+  const toggleWrap = container.createEl("div", { cls: "csv-m-toggle" });
+  ["Kanban", "Table"].forEach(mode => {
+    const btn = toggleWrap.createEl("button", { text: mode });
+    if (mode.toLowerCase() === viewMode) btn.classList.add("active");
+    btn.onclick = () => { localStorage.setItem(modeKey, mode.toLowerCase()); location.reload(); };
   });
 
-  const entries = showAll ? data : data.slice(-20).reverse();
+  if (viewMode === "table") {
+    // Table view
+    const tableWrap = container.createEl("div");
+    tableWrap.style.cssText = "overflow-x:auto;font-size:14px;";
+    const table = tableWrap.createEl("table");
+    table.style.cssText = "width:100%;border-collapse:collapse;";
+    const thead = table.createEl("thead");
+    const headerRow = thead.createEl("tr");
+    [titleKey, categoryCol, statusCol].filter(Boolean).forEach(h => {
+      const th = headerRow.createEl("th", { text: h });
+      th.style.cssText = "text-align:left;padding:8px 10px;font-weight:500;color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--background-modifier-border);";
+    });
+    const tbody = table.createEl("tbody");
+    data.slice(-30).reverse().forEach(r => {
+      const row = tbody.createEl("tr");
+      [titleKey, categoryCol, statusCol].filter(Boolean).forEach(col => {
+        const td = row.createEl("td", { text: r[col] || "" });
+        td.style.cssText = "padding:10px;font-size:13px;";
+      });
+    });
+  } else {
+    // Kanban view - group by category
+    const groups = {};
+    data.forEach(r => {
+      const cats = (r[categoryCol] || "Uncategorized").split(",").map(c => c.trim());
+      cats.forEach(cat => {
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(r);
+      });
+    });
 
-  dv.table(
-    [${displayCols.map((c) => `"${c}"`).join(", ")}],
-    entries.map(r => [${displayCols.map((c) => `r["${c}"] || ""`).join(", ")}])
-  );
+    Object.keys(groups).sort().forEach(cat => {
+      const items = groups[cat];
+      const section = container.createEl("details", { cls: "csv-m-section" });
+      section.open = true;
+      const summary = section.createEl("summary");
+      summary.innerHTML = '<span class="arrow">\u25B6</span> ' + cat + ' <span class="count">' + items.length + '</span>';
 
-  if (!showAll) {
-    const hint = container.createEl("p");
-    hint.style.cssText = "color:var(--text-faint);font-size:12px;margin-top:8px;";
-    hint.textContent = "Showing last 20 of " + data.length + " entries";
+      const grid = section.createEl("div", { cls: "csv-m-grid" });
+
+      // Sort: in-progress first, then by title
+      items.sort((a, b) => {
+        const statusA = (a[statusCol] || "").toLowerCase();
+        const statusB = (b[statusCol] || "").toLowerCase();
+        const inProgressA = statusA.includes("progress") || statusA.includes("reading") || statusA.includes("watching");
+        const inProgressB = statusB.includes("progress") || statusB.includes("reading") || statusB.includes("watching");
+        if (inProgressA !== inProgressB) return inProgressA ? -1 : 1;
+        return (a[titleKey] || "").localeCompare(b[titleKey] || "");
+      });
+
+      items.forEach(r => {
+        const card = grid.createEl("div", { cls: "csv-m-card" });
+        card.createEl("div", { cls: "csv-m-card-title", text: r[titleKey] || "Untitled" });
+        if (authorKey && r[authorKey]) {
+          card.createEl("div", { cls: "csv-m-card-meta", text: r[authorKey] });
+        }
+        if (r[statusCol]) {
+          const statusEl = card.createEl("span", { cls: "csv-m-card-status", text: r[statusCol] });
+          statusEl.classList.add(r[statusCol].toLowerCase().replace(/\\s+/g, "-"));
+        }
+      });
+    });
   }
 }
 \`\`\`

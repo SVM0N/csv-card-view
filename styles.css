@@ -2025,6 +2025,7 @@ td .csv-select-chip {
   background: transparent;
   border-radius: 0;
   border: none;
+  max-width: 95%;
 }
 
 .csv-add-form.csv-add-compact {
