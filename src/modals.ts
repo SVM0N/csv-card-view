@@ -108,6 +108,7 @@ export class NoteExpanderModal extends Modal {
   private isSelectCol: (h: string) => boolean;
   private getColumnValues: (h: string) => string[];
   private onSave: (row: CSVRow) => void;
+  private onDelete?: () => void;
 
   constructor(
     app: App,
@@ -118,7 +119,8 @@ export class NoteExpanderModal extends Modal {
     isNotesCol: (h: string) => boolean,
     isSelectCol: (h: string) => boolean,
     getColumnValues: (h: string) => string[],
-    onSave: (row: CSVRow) => void
+    onSave: (row: CSVRow) => void,
+    onDelete?: () => void
   ) {
     super(app);
     // Work on a shallow copy so cancel doesn't mutate
@@ -131,6 +133,7 @@ export class NoteExpanderModal extends Modal {
     this.isSelectCol = isSelectCol;
     this.getColumnValues = getColumnValues;
     this.onSave = onSave;
+    this.onDelete = onDelete;
     this.modalEl.addClass("csv-note-expander-modal");
   }
 
@@ -223,11 +226,26 @@ export class NoteExpanderModal extends Modal {
     });
 
     // ── Footer buttons ───────────────────────────────────────────────────────
+    // Layout: [Delete] ............... [Cancel] [Save & close]
+    // Delete sits far left so it can't be hit by reflex when reaching for Save.
     const footer = contentEl.createDiv({ cls: "csv-expander-footer" });
-    footer.createEl("button", { cls: "csv-modal-cancel", text: "Cancel" })
+
+    if (this.onDelete) {
+      const titleVal = String(this.row[this.headers.find(h => ["title","name","Title","Name"].includes(h)) ?? this.headers[0]] ?? "").trim();
+      footer.createEl("button", { cls: "csv-expander-delete-btn", text: "Delete" })
+        .addEventListener("click", () => {
+          const label = titleVal || "this entry";
+          if (!window.confirm(`Delete "${label}"? This can't be undone.`)) return;
+          this.onDelete!();
+          this.close();
+        });
+    }
+
+    const rightBtns = footer.createDiv({ cls: "csv-expander-footer-right" });
+    rightBtns.createEl("button", { cls: "csv-modal-cancel", text: "Cancel" })
       .addEventListener("click", () => this.close()); // close without saving
 
-    footer.createEl("button", { cls: "csv-expander-save-btn", text: "Save & close" })
+    rightBtns.createEl("button", { cls: "csv-expander-save-btn", text: "Save & close" })
       .addEventListener("click", () => {
         if (isEditing) currentText = ta.value;
         this.row[this.notesCol] = currentText;

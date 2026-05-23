@@ -84,6 +84,15 @@ export class XLSXCardView extends FileView {
     } else {
       this.mode = this.settings.defaultMode;
     }
+    // Guard: if the resolved mode requires a column this file doesn't have,
+    // fall back to "table" so we never land on a broken empty-state screen.
+    // (e.g. dictionary.xlsx has no Category col but the global default is
+    // kanban-genre — without this it would render "No category column found".)
+    const needsCategory = this.mode === "kanban-genre" || this.mode === "library";
+    const needsDate = this.mode === "dashboard";
+    if ((needsCategory && !this.getCategoryCol()) || (needsDate && !this.hasDateColumn())) {
+      this.mode = "table";
+    }
     this.selectedDate = null; // Reset selected date when loading new file
     this.renderView();
   }
@@ -289,6 +298,17 @@ export class XLSXCardView extends FileView {
         Object.assign(row, updatedRow);
         this.scheduleSave();
         this.renderView();
+      },
+      // Delete: remove the original row from the live array, then save+rerender.
+      // Find by reference identity (this.rows holds the same object refs that
+      // are passed into the expander), not by title — handles duplicates.
+      () => {
+        const idx = this.rows.indexOf(row);
+        if (idx >= 0) {
+          this.rows.splice(idx, 1);
+          this.scheduleSave();
+          this.renderView();
+        }
       }
     ).open();
   }
@@ -1231,9 +1251,10 @@ if (!csvData || !csvData.length) {
     const yearCol = this.resolveCol(["Year","year","Released","released"]) ?? "";
     const ratingCol = this.resolveCol(["Rating","rating","Score","score","Stars","stars"]) ?? "";
     const themeCol = this.resolveCol(["Theme","theme","Subgenre","subgenre","Mood","mood"]) ?? "";
-    // Movies are typically short titles + a Yes/No watched column. Use 2-col compact
-    // grid so two cards fit per row. Books/quotes (longer titles) stay 1-col.
-    const compactGrid = /^(watched|seen)$/i.test(statusCol);
+    // Use 2-col compact grid whenever the file has a short Title/Name column —
+    // books and movies fit two-up cleanly, while quotes (titleKey resolves to
+    // "Quote", a long sentence) keeps the 1-col layout for readability.
+    const compactGrid = this.titleKey() !== null;
 
     return `---
 obsidianUIMode: preview
@@ -2156,69 +2177,106 @@ export default class CardViewPlugin extends Plugin {
     const notesCols = headers.filter(h => isNotesCol(h));
     const otherCols = headers.filter(h => !binaryCols.includes(h) && !dateCols.includes(h) && !notesCols.includes(h));
 
-    // Render compact form
-    const form = el.createDiv({ cls: "csv-add-form csv-add-compact" });
+    // Render as one collapsible "menu" (Apple-style grouped card):
+    //   - Default state: a single discreet "+ New entry" pill.
+    //   - Tap → expands a single rounded card containing all fields as rows
+    //     separated by hairlines, then one "Add" button. No more disjoint blocks.
+    const root = el.createDiv({ cls: "csv-add-form csv-add-compact" });
+
+    // Default-open: the card is visible immediately; tapping × collapses it
+    // to the trigger pill, and the pill re-opens it. (One menu, always one tap
+    // away in either direction.)
+    const trigger = root.createEl("button", { cls: "csv-add-trigger", text: "+ New entry" });
+    trigger.style.display = "none";
+    const card = root.createDiv({ cls: "csv-add-card" });
+
+    // Header bar: title + close (×). Re-uses the trigger to collapse.
+    const header = card.createDiv({ cls: "csv-add-card-header" });
+    header.createEl("span", { cls: "csv-add-card-title", text: "New entry" });
+    const closeBtn = header.createEl("button", { cls: "csv-add-card-close", text: "×" });
+
+    // Rows live in one grouped list with hairline separators between them.
+    const rowsWrap = card.createDiv({ cls: "csv-add-rows" });
 
     const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
     const toggleStates: Record<string, boolean> = {};
 
-    // Date field first (if habit tracker)
+    // Helper: a single row (label on the left, control on the right).
+    const makeRow = (h: string, kind: string) => {
+      const row = rowsWrap.createDiv({ cls: `csv-add-row csv-add-row-${kind}` });
+      row.createEl("span", { cls: "csv-add-row-label", text: titleCase(h) });
+      return row;
+    };
+
+    // Date row (habit trackers) — first so today's date is the obvious default.
     dateCols.forEach(h => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-date-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
-      const dateInput = fieldWrap.createEl("input", { cls: "csv-add-input", type: "date" });
-      dateInput.value = new Date().toISOString().split("T")[0]; // Default to today
+      const row = makeRow(h, "date");
+      const dateInput = row.createEl("input", { cls: "csv-add-row-control", type: "date" });
+      dateInput.value = new Date().toISOString().split("T")[0];
       inputs[h] = dateInput;
     });
 
-    // Binary columns as toggles in a grid
-    if (binaryCols.length > 0) {
-      const toggleGrid = form.createDiv({ cls: "csv-add-toggle-grid" });
-      binaryCols.forEach(h => {
-        toggleStates[h] = false;
-        const toggle = toggleGrid.createDiv({ cls: "csv-add-toggle" });
-        const checkbox = toggle.createEl("input", { type: "checkbox", cls: "csv-add-checkbox" });
-        checkbox.id = `toggle-${h}`;
-        const label = toggle.createEl("label", { text: titleCase(h), cls: "csv-add-toggle-label" });
-        label.setAttribute("for", `toggle-${h}`);
-        checkbox.addEventListener("change", () => { toggleStates[h] = checkbox.checked; });
-        inputs[h] = checkbox;
-      });
-    }
+    // Binary columns: each one its own row with a right-aligned switch.
+    binaryCols.forEach(h => {
+      toggleStates[h] = false;
+      const row = makeRow(h, "toggle");
+      const switchWrap = row.createEl("label", { cls: "csv-add-switch" });
+      const checkbox = switchWrap.createEl("input", { type: "checkbox", cls: "csv-add-switch-input" });
+      switchWrap.createEl("span", { cls: "csv-add-switch-track" });
+      checkbox.addEventListener("change", () => { toggleStates[h] = checkbox.checked; });
+      inputs[h] = checkbox;
+    });
 
-    // Other fields (title, author, category, etc.)
+    // Other fields (title, author, category, etc.) — text or select inline.
     otherCols.forEach(h => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
-
+      const row = makeRow(h, "field");
       const uniqueVals = new Set(rows.map(r => (r[h] ?? "").trim()).filter(Boolean));
       if (uniqueVals.size > 0 && uniqueVals.size <= 15) {
-        const select = fieldWrap.createEl("select", { cls: "csv-add-select" });
-        select.createEl("option", { text: "", value: "" });
+        const select = row.createEl("select", { cls: "csv-add-row-control" });
+        select.createEl("option", { text: "—", value: "" });
         Array.from(uniqueVals).sort().forEach(v => select.createEl("option", { text: v, value: v }));
         select.createEl("option", { text: "+ Custom", value: "__custom__" });
-        const customInput = fieldWrap.createEl("input", { cls: "csv-add-input csv-add-custom-input", type: "text", placeholder: "Enter custom value" });
-        customInput.style.display = "none";
+        // Custom input lives in its own row that appears just below when chosen.
+        const customRow = rowsWrap.createDiv({ cls: "csv-add-row csv-add-row-custom" });
+        customRow.style.display = "none";
+        const customInput = customRow.createEl("input", { cls: "csv-add-row-control", type: "text", placeholder: `Custom ${titleCase(h).toLowerCase()}` });
+        // Keep the custom row visually adjacent to its parent select row.
+        rowsWrap.insertBefore(customRow, row.nextSibling);
         select.addEventListener("change", () => {
-          customInput.style.display = select.value === "__custom__" ? "block" : "none";
+          customRow.style.display = select.value === "__custom__" ? "flex" : "none";
           if (select.value === "__custom__") customInput.focus();
         });
         inputs[h] = select;
         inputs[`${h}__custom`] = customInput as HTMLInputElement;
       } else {
-        inputs[h] = fieldWrap.createEl("input", { cls: "csv-add-input", type: "text", placeholder: titleCase(h) });
+        inputs[h] = row.createEl("input", { cls: "csv-add-row-control", type: "text", placeholder: titleCase(h) });
       }
     });
 
-    // Notes field last (if any)
+    // Notes row — full-width textarea, stacked below the inline label.
     notesCols.forEach(h => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-notes-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
-      inputs[h] = fieldWrap.createEl("textarea", { cls: "csv-add-textarea", placeholder: "Optional notes..." }) as any;
+      const row = rowsWrap.createDiv({ cls: "csv-add-row csv-add-row-notes" });
+      row.createEl("span", { cls: "csv-add-row-label", text: titleCase(h) });
+      inputs[h] = row.createEl("textarea", { cls: "csv-add-row-textarea", placeholder: "Optional notes…" }) as any;
     });
 
-    // Submit button
-    const submitBtn = form.createEl("button", { text: "Add Entry", cls: "csv-add-submit" });
+    // Submit lives inside the card so the whole menu reads as one unit.
+    const submitBtn = card.createEl("button", { text: "Add", cls: "csv-add-submit" });
+
+    // Expand / collapse wiring. Focusing the first text-ish input on open
+    // mirrors iOS sheet behaviour where the keyboard comes up immediately.
+    const open = () => {
+      card.style.display = "block";
+      trigger.style.display = "none";
+      const first = card.querySelector(".csv-add-row-control") as HTMLElement | null;
+      first?.focus();
+    };
+    const close = () => {
+      card.style.display = "none";
+      trigger.style.display = "";
+    };
+    trigger.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
 
     submitBtn.addEventListener("click", async () => {
       // Gather values
@@ -2349,11 +2407,14 @@ export default class CardViewPlugin extends Plugin {
           const customInput = inputs[`${h}__custom`];
           if (customInput) {
             (customInput as HTMLInputElement).value = "";
-            (customInput as HTMLInputElement).style.display = "none";
+            // The custom input lives inside a .csv-add-row-custom wrapper —
+            // hide the row itself so the layout stays in sync with the select.
+            const customRow = (customInput as HTMLInputElement).closest(".csv-add-row-custom") as HTMLElement | null;
+            if (customRow) customRow.style.display = "none";
           }
         });
-        // Update toggle visual state
-        form.querySelectorAll(".csv-add-toggle").forEach(t => t.classList.remove("checked"));
+        // Card stays open after a successful add so a quick second entry is one
+        // tap away; user can collapse with the × header button when finished.
 
         // Auto-refresh: reopen the note to force Dataview to re-read CSV
         setTimeout(async () => {

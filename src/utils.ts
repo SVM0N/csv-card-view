@@ -91,10 +91,18 @@ export function showSelectPicker(
   currentValue: string,
   allValues: string[],
   onSelect: (val: string) => void,
-  container: HTMLElement
+  _container: HTMLElement
 ): void {
-  container.querySelectorAll(".csv-select-picker").forEach(el => el.remove());
-  const picker = container.createDiv({ cls: "csv-select-picker" });
+  // Always append to document.body so `position: fixed` is anchored to the
+  // viewport. If we nested inside the caller's container, any ancestor with
+  // `transform`, `filter`, or `backdrop-filter` (Obsidian's modal has these)
+  // would become the containing block for `position: fixed`, and the
+  // viewport-relative coords from getBoundingClientRect() would get applied
+  // as offsets from that ancestor — making the dropdown appear far to the
+  // right of the chip that opened it. `_container` is kept in the signature
+  // for backward compatibility.
+  document.body.querySelectorAll(".csv-select-picker").forEach(el => el.remove());
+  const picker = document.body.createDiv({ cls: "csv-select-picker" });
   const anchorRect = anchor.getBoundingClientRect();
   picker.style.position = "fixed";
   picker.style.left = anchorRect.left + "px";

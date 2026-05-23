@@ -371,7 +371,10 @@ for (const t of TARGETS) {
       yCol: yearCol(headers),
       rCol: ratingCol(headers),
       thCol: themeCol(headers),
-      compact: /^(watched|seen)$/i.test(sCol),
+      // 2-col compact grid when the file has a short Title/Name column
+      // (books + movies). Quotes/dictionary have longer headline columns
+      // so they stay 1-col. Mirrors main.ts.
+      compact: !!resolve(headers, ["Title","title","Name","name"]),
     });
   } else {
     content = genericTemplate({ filePath, csvPath, headers });

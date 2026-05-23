@@ -1504,11 +1504,38 @@ td .csv-select-chip {
 
 .csv-expander-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid var(--csv-border);
   flex-shrink: 0;
+}
+
+.csv-expander-footer-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Delete is destructive — muted red, ghost-style by default so it doesn't
+   compete with Save, then fills on hover so the user knows it'll fire. */
+.csv-expander-delete-btn {
+  padding: 8px 14px;
+  border: 1px solid rgba(234, 67, 53, 0.4);
+  background: transparent;
+  color: #ea4335;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.csv-expander-delete-btn:hover {
+  background: #ea4335;
+  border-color: #ea4335;
+  color: white;
 }
 
 /* Chip truncation in kanban */
@@ -2018,7 +2045,10 @@ td .csv-select-chip {
   text-transform: capitalize;
 }
 
-/* ─── Mobile Add Form (csv-add code block) ────────────────────────────────── */
+/* ─── Mobile Add Form (csv-add code block) ────────────────────────────────────
+   One unified "menu" instead of a stack of disjoint prompts. Default state
+   is a discreet pill; tapping it expands a single rounded grouped card
+   (iOS-Settings style) with hairline-separated rows and one Add button. */
 
 .csv-add-error {
   color: #ea4335;
@@ -2031,132 +2061,205 @@ td .csv-select-chip {
 .csv-add-form {
   padding: 0;
   background: transparent;
-  border-radius: 0;
   border: none;
-  max-width: 95%;
+  margin: 0 0 16px 0;
+  max-width: 520px;
 }
 
-.csv-add-form.csv-add-compact {
-  padding: 0;
-}
-
-.csv-add-field {
-  margin-bottom: 10px;
-}
-
-.csv-add-date-field {
-  margin-bottom: 16px;
-  max-width: 160px;
-}
-
-.csv-add-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.csv-add-input,
-.csv-add-select {
-  width: 100%;
-  padding: 10px 12px;
+/* Collapsed trigger pill */
+.csv-add-trigger {
+  padding: 8px 14px;
   border: none;
-  border-radius: 10px;
   background: var(--background-secondary);
   color: var(--text-normal);
-  font-size: 15px;
-  outline: none;
-  transition: background 0.15s;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
 }
 
-.csv-add-input:focus,
-.csv-add-select:focus {
-  background: var(--background-modifier-hover);
+.csv-add-trigger:hover { background: var(--background-modifier-hover); }
+.csv-add-trigger:active { transform: scale(0.98); }
+
+/* Expanded card */
+.csv-add-card {
+  background: var(--background-secondary);
+  border-radius: 14px;
+  overflow: hidden;
 }
 
-.csv-add-custom-input {
-  margin-top: 4px;
-}
-
-/* Toggle grid for binary columns */
-.csv-add-toggle-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding: 0;
-  border: none;
-}
-
-.csv-add-toggle {
+.csv-add-card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  justify-content: space-between;
+  padding: 12px 16px;
   background: transparent;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
 }
 
-.csv-add-toggle:has(.csv-add-checkbox:checked) {
-  background: var(--background-secondary);
-}
-
-.csv-add-checkbox {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--text-accent);
-  border-radius: 50%;
-}
-
-.csv-add-toggle-label {
-  font-size: 14px;
-  font-weight: 400;
+.csv-add-card-title {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
+  letter-spacing: 0.02em;
 }
 
-.csv-add-toggle:has(.csv-add-checkbox:checked) .csv-add-toggle-label {
-  color: var(--text-normal);
-  font-weight: 500;
-}
-
-/* Notes field */
-.csv-add-notes-field {
-  margin-top: 16px;
-}
-
-.csv-add-textarea {
-  width: 100%;
-  min-height: 60px;
-  padding: 10px 12px;
+.csv-add-card-close {
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 10px;
-  background: var(--background-secondary);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.csv-add-card-close:hover {
+  background: var(--background-modifier-hover);
   color: var(--text-normal);
-  font-size: 15px;
+}
+
+/* Grouped row list with hairline separators */
+.csv-add-rows {
+  background: var(--background-primary);
+  margin: 0 12px;
+  border-radius: 10px;
+}
+
+.csv-add-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.csv-add-row:last-child { border-bottom: none; }
+
+.csv-add-row-label {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--text-normal);
+  min-width: 80px;
+}
+
+.csv-add-row-control {
+  flex: 1 1 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 14px;
+  text-align: right;
+  outline: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.csv-add-row-control::placeholder {
+  color: var(--text-faint);
+}
+
+/* Selects need a chevron and right-aligned text */
+select.csv-add-row-control {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='gray' stroke-width='1.5' d='M1 1l4 4 4-4'/></svg>")
+    no-repeat right center;
+  padding-right: 14px;
+  cursor: pointer;
+}
+
+/* Notes row stacks vertically (label above, textarea full width) */
+.csv-add-row-notes {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 14px 12px;
+}
+
+.csv-add-row-notes .csv-add-row-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.csv-add-row-textarea {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 14px;
   resize: vertical;
   outline: none;
   font-family: inherit;
-  transition: background 0.15s;
+  padding: 0;
 }
 
-.csv-add-textarea:focus {
-  background: var(--background-modifier-hover);
+.csv-add-row-textarea::placeholder { color: var(--text-faint); }
+
+/* iOS-style switch for binary toggle rows */
+.csv-add-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  cursor: pointer;
 }
 
+.csv-add-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.csv-add-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--background-modifier-border);
+  border-radius: 999px;
+  transition: background 0.18s;
+}
+
+.csv-add-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: var(--background-primary);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.18s;
+}
+
+.csv-add-switch-input:checked + .csv-add-switch-track {
+  background: var(--text-accent);
+}
+
+.csv-add-switch-input:checked + .csv-add-switch-track::after {
+  transform: translateX(18px);
+}
+
+/* Submit button — full width inside the card footer */
 .csv-add-submit {
-  width: 100%;
-  margin-top: 20px;
-  padding: 12px 20px;
+  display: block;
+  width: calc(100% - 24px);
+  margin: 14px 12px 14px;
+  padding: 11px 18px;
   border: none;
   background: var(--text-accent);
   color: white;
@@ -2164,12 +2267,11 @@ td .csv-select-chip {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, transform 0.05s;
 }
 
-.csv-add-submit:hover {
-  opacity: 0.9;
-}
+.csv-add-submit:hover { opacity: 0.92; }
+.csv-add-submit:active { transform: scale(0.99); }
 
 .csv-refresh-btn {
   padding: 4px 10px;

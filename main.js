@@ -45738,9 +45738,9 @@ function formatRating(value, columnName) {
   };
   return (_a = ratingMap[val]) != null ? _a : value;
 }
-function showSelectPicker(anchor, currentValue, allValues, onSelect, container) {
-  container.querySelectorAll(".csv-select-picker").forEach((el) => el.remove());
-  const picker = container.createDiv({ cls: "csv-select-picker" });
+function showSelectPicker(anchor, currentValue, allValues, onSelect, _container) {
+  document.body.querySelectorAll(".csv-select-picker").forEach((el) => el.remove());
+  const picker = document.body.createDiv({ cls: "csv-select-picker" });
   const anchorRect = anchor.getBoundingClientRect();
   picker.style.position = "fixed";
   picker.style.left = anchorRect.left + "px";
@@ -45879,7 +45879,7 @@ var AddEntryModal = class extends import_obsidian.Modal {
   }
 };
 var NoteExpanderModal = class extends import_obsidian.Modal {
-  constructor(app, row, notesCol, headers, filePath, isNotesCol, isSelectCol, getColumnValues, onSave) {
+  constructor(app, row, notesCol, headers, filePath, isNotesCol, isSelectCol, getColumnValues, onSave, onDelete) {
     super(app);
     this.row = { ...row };
     this.notesCol = notesCol;
@@ -45890,10 +45890,11 @@ var NoteExpanderModal = class extends import_obsidian.Modal {
     this.isSelectCol = isSelectCol;
     this.getColumnValues = getColumnValues;
     this.onSave = onSave;
+    this.onDelete = onDelete;
     this.modalEl.addClass("csv-note-expander-modal");
   }
   onOpen() {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     this.renderComponent.load();
     const { contentEl } = this;
     contentEl.empty();
@@ -45984,8 +45985,19 @@ var NoteExpanderModal = class extends import_obsidian.Modal {
       }
     });
     const footer = contentEl.createDiv({ cls: "csv-expander-footer" });
-    footer.createEl("button", { cls: "csv-modal-cancel", text: "Cancel" }).addEventListener("click", () => this.close());
-    footer.createEl("button", { cls: "csv-expander-save-btn", text: "Save & close" }).addEventListener("click", () => {
+    if (this.onDelete) {
+      const titleVal = String((_e = this.row[(_d = this.headers.find((h) => ["title", "name", "Title", "Name"].includes(h))) != null ? _d : this.headers[0]]) != null ? _e : "").trim();
+      footer.createEl("button", { cls: "csv-expander-delete-btn", text: "Delete" }).addEventListener("click", () => {
+        const label = titleVal || "this entry";
+        if (!window.confirm(`Delete "${label}"? This can't be undone.`))
+          return;
+        this.onDelete();
+        this.close();
+      });
+    }
+    const rightBtns = footer.createDiv({ cls: "csv-expander-footer-right" });
+    rightBtns.createEl("button", { cls: "csv-modal-cancel", text: "Cancel" }).addEventListener("click", () => this.close());
+    rightBtns.createEl("button", { cls: "csv-expander-save-btn", text: "Save & close" }).addEventListener("click", () => {
       if (isEditing)
         currentText = ta.value;
       this.row[this.notesCol] = currentText;
@@ -46194,6 +46206,11 @@ var XLSXCardView = class extends import_obsidian2.FileView {
       this.mode = "dashboard";
     } else {
       this.mode = this.settings.defaultMode;
+    }
+    const needsCategory = this.mode === "kanban-genre" || this.mode === "library";
+    const needsDate = this.mode === "dashboard";
+    if (needsCategory && !this.getCategoryCol() || needsDate && !this.hasDateColumn()) {
+      this.mode = "table";
     }
     this.selectedDate = null;
     this.renderView();
@@ -46479,6 +46496,17 @@ var XLSXCardView = class extends import_obsidian2.FileView {
         Object.assign(row, updatedRow);
         this.scheduleSave();
         this.renderView();
+      },
+      // Delete: remove the original row from the live array, then save+rerender.
+      // Find by reference identity (this.rows holds the same object refs that
+      // are passed into the expander), not by title — handles duplicates.
+      () => {
+        const idx = this.rows.indexOf(row);
+        if (idx >= 0) {
+          this.rows.splice(idx, 1);
+          this.scheduleSave();
+          this.renderView();
+        }
       }
     ).open();
   }
@@ -47295,7 +47323,7 @@ if (!csvData || !csvData.length) {
     const yearCol = (_f = this.resolveCol(["Year", "year", "Released", "released"])) != null ? _f : "";
     const ratingCol = (_g = this.resolveCol(["Rating", "rating", "Score", "score", "Stars", "stars"])) != null ? _g : "";
     const themeCol = (_h = this.resolveCol(["Theme", "theme", "Subgenre", "subgenre", "Mood", "mood"])) != null ? _h : "";
-    const compactGrid = /^(watched|seen)$/i.test(statusCol);
+    const compactGrid = this.titleKey() !== null;
     return `---
 obsidianUIMode: preview
 obsidianEditingMode: source
@@ -48216,62 +48244,82 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
     const dateCols = headers.filter((h) => isDateCol(h));
     const notesCols = headers.filter((h) => isNotesCol(h));
     const otherCols = headers.filter((h) => !binaryCols.includes(h) && !dateCols.includes(h) && !notesCols.includes(h));
-    const form = el.createDiv({ cls: "csv-add-form csv-add-compact" });
+    const root = el.createDiv({ cls: "csv-add-form csv-add-compact" });
+    const trigger = root.createEl("button", { cls: "csv-add-trigger", text: "+ New entry" });
+    trigger.style.display = "none";
+    const card = root.createDiv({ cls: "csv-add-card" });
+    const header = card.createDiv({ cls: "csv-add-card-header" });
+    header.createEl("span", { cls: "csv-add-card-title", text: "New entry" });
+    const closeBtn = header.createEl("button", { cls: "csv-add-card-close", text: "\xD7" });
+    const rowsWrap = card.createDiv({ cls: "csv-add-rows" });
     const inputs = {};
     const toggleStates = {};
+    const makeRow = (h, kind) => {
+      const row = rowsWrap.createDiv({ cls: `csv-add-row csv-add-row-${kind}` });
+      row.createEl("span", { cls: "csv-add-row-label", text: titleCase(h) });
+      return row;
+    };
     dateCols.forEach((h) => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-date-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
-      const dateInput = fieldWrap.createEl("input", { cls: "csv-add-input", type: "date" });
+      const row = makeRow(h, "date");
+      const dateInput = row.createEl("input", { cls: "csv-add-row-control", type: "date" });
       dateInput.value = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
       inputs[h] = dateInput;
     });
-    if (binaryCols.length > 0) {
-      const toggleGrid = form.createDiv({ cls: "csv-add-toggle-grid" });
-      binaryCols.forEach((h) => {
-        toggleStates[h] = false;
-        const toggle = toggleGrid.createDiv({ cls: "csv-add-toggle" });
-        const checkbox = toggle.createEl("input", { type: "checkbox", cls: "csv-add-checkbox" });
-        checkbox.id = `toggle-${h}`;
-        const label = toggle.createEl("label", { text: titleCase(h), cls: "csv-add-toggle-label" });
-        label.setAttribute("for", `toggle-${h}`);
-        checkbox.addEventListener("change", () => {
-          toggleStates[h] = checkbox.checked;
-        });
-        inputs[h] = checkbox;
+    binaryCols.forEach((h) => {
+      toggleStates[h] = false;
+      const row = makeRow(h, "toggle");
+      const switchWrap = row.createEl("label", { cls: "csv-add-switch" });
+      const checkbox = switchWrap.createEl("input", { type: "checkbox", cls: "csv-add-switch-input" });
+      switchWrap.createEl("span", { cls: "csv-add-switch-track" });
+      checkbox.addEventListener("change", () => {
+        toggleStates[h] = checkbox.checked;
       });
-    }
+      inputs[h] = checkbox;
+    });
     otherCols.forEach((h) => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
+      const row = makeRow(h, "field");
       const uniqueVals = new Set(rows.map((r) => {
         var _a2;
         return ((_a2 = r[h]) != null ? _a2 : "").trim();
       }).filter(Boolean));
       if (uniqueVals.size > 0 && uniqueVals.size <= 15) {
-        const select = fieldWrap.createEl("select", { cls: "csv-add-select" });
-        select.createEl("option", { text: "", value: "" });
+        const select = row.createEl("select", { cls: "csv-add-row-control" });
+        select.createEl("option", { text: "\u2014", value: "" });
         Array.from(uniqueVals).sort().forEach((v) => select.createEl("option", { text: v, value: v }));
         select.createEl("option", { text: "+ Custom", value: "__custom__" });
-        const customInput = fieldWrap.createEl("input", { cls: "csv-add-input csv-add-custom-input", type: "text", placeholder: "Enter custom value" });
-        customInput.style.display = "none";
+        const customRow = rowsWrap.createDiv({ cls: "csv-add-row csv-add-row-custom" });
+        customRow.style.display = "none";
+        const customInput = customRow.createEl("input", { cls: "csv-add-row-control", type: "text", placeholder: `Custom ${titleCase(h).toLowerCase()}` });
+        rowsWrap.insertBefore(customRow, row.nextSibling);
         select.addEventListener("change", () => {
-          customInput.style.display = select.value === "__custom__" ? "block" : "none";
+          customRow.style.display = select.value === "__custom__" ? "flex" : "none";
           if (select.value === "__custom__")
             customInput.focus();
         });
         inputs[h] = select;
         inputs[`${h}__custom`] = customInput;
       } else {
-        inputs[h] = fieldWrap.createEl("input", { cls: "csv-add-input", type: "text", placeholder: titleCase(h) });
+        inputs[h] = row.createEl("input", { cls: "csv-add-row-control", type: "text", placeholder: titleCase(h) });
       }
     });
     notesCols.forEach((h) => {
-      const fieldWrap = form.createDiv({ cls: "csv-add-field csv-add-notes-field" });
-      fieldWrap.createEl("label", { text: titleCase(h), cls: "csv-add-label" });
-      inputs[h] = fieldWrap.createEl("textarea", { cls: "csv-add-textarea", placeholder: "Optional notes..." });
+      const row = rowsWrap.createDiv({ cls: "csv-add-row csv-add-row-notes" });
+      row.createEl("span", { cls: "csv-add-row-label", text: titleCase(h) });
+      inputs[h] = row.createEl("textarea", { cls: "csv-add-row-textarea", placeholder: "Optional notes\u2026" });
     });
-    const submitBtn = form.createEl("button", { text: "Add Entry", cls: "csv-add-submit" });
+    const submitBtn = card.createEl("button", { text: "Add", cls: "csv-add-submit" });
+    const open = () => {
+      card.style.display = "block";
+      trigger.style.display = "none";
+      const first = card.querySelector(".csv-add-row-control");
+      first == null ? void 0 : first.focus();
+    };
+    const close = () => {
+      card.style.display = "none";
+      trigger.style.display = "";
+    };
+    trigger.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
     submitBtn.addEventListener("click", async () => {
       var _a2, _b2;
       const newRow = {};
@@ -48395,10 +48443,11 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
           const customInput = inputs[`${h}__custom`];
           if (customInput) {
             customInput.value = "";
-            customInput.style.display = "none";
+            const customRow = customInput.closest(".csv-add-row-custom");
+            if (customRow)
+              customRow.style.display = "none";
           }
         });
-        form.querySelectorAll(".csv-add-toggle").forEach((t) => t.classList.remove("checked"));
         setTimeout(async () => {
           const noteFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
           if (noteFile instanceof import_obsidian2.TFile) {
