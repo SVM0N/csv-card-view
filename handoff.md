@@ -2,25 +2,48 @@
 
 ## Session pickup
 
-**Last shipped (2026-05-22, commit `9f0743a`)**: data-driven Library cards, status color palette extension, cardFields picker in the Columns modal, kanban accent-color category headers, mobile dictionary column-width fix, Watched/Unwatched normalization. 105 tests green (84 logic + 21 mobile).
+**Live data location**: `Knowledge/Library/` in the iCloud vault. Holds the five xlsx files (movies, books, quotes, dictionary, habit_tracker). `Mobile/`, `_csv_helpers/`, and `Archive/` are created as needed by the plugin on first click of the respective buttons. The old `Knowledge/Test/` folder is legacy and can be deleted.
 
-**The user is about to move the test xlsx files** from `Knowledge/Test/` into their main library location (somewhere else in the vault — they didn't specify the destination). **This is supposed to be safe** because:
+**All paths in the dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget again if the user moves the folder once more.
 
-- Mobile dashboard `csv-add` lines use `file: ../<basename>.xlsx` (note-relative). `resolvePath` in `src/utils.ts` walks `..` segments properly. Move the parent folder anywhere → dashboards still resolve.
-- The `_csv_helpers/<file>.csv` mirror lives in the same parent folder as the xlsx, so it travels with the move.
-- The `Mobile/` subfolder also lives in the same parent folder, ditto.
-- `Archive/` (when the 💾 Backup button is used) is created in the same parent folder, ditto.
+**Last shipped (commit `69151d0`)**: handoff session pickup + accurate file/test counts. Preceded by `9f0743a` which delivered data-driven Library cards, status color palette extension, cardFields picker, accent-color category headers, mobile dictionary column-width fix, and Watched/Unwatched normalization. 105 tests green (84 logic + 21 mobile).
 
-**What the user might hit after the move**:
-- `data.json` `fileConfigs` keys are full vault paths and **do not follow renames**. After moving, per-file settings (categoryColumn, cardFields, etc.) become orphaned. The "fileConfigs key doesn't follow renames" item in Known Issues / future work is exactly this. Not blocking but worth noting if they report "my column picker settings disappeared."
-- `test-mobile-dashboards.mjs` and `regenerate-mobile-dashboards.mjs` have **hardcoded paths** pointing to `Knowledge/Test/...` — update both if the user wants those tools to keep working against the new location.
-- If they delete the `Knowledge/Test/_csv_helpers/` folder during the move, dashboards will throw "No data found" until they re-save an xlsx via the plugin (which writes the helper CSV).
+**To bring the new Library/ folder live**: in Obsidian, open each of the 5 xlsx and click **📱 Mobile**. That writes the helper CSV at `Library/_csv_helpers/<name>.csv` and the dashboard at `Library/Mobile/<name>.md` with `file: ../<name>.xlsx`. After all five exist, `npm run test:mobile` should report all green (the simulator silently skips missing files until then).
 
 **Active dev loop**:
 ```
 npm run build:deploy && npm run regen:mobile && npm run test:all
 ```
 (then Cmd+R in Obsidian to load the new plugin)
+
+**Known carryover from the move**:
+- `data.json` `fileConfigs` keys are absolute vault paths and **do not follow renames** — per-file picks (cardFields, categoryColumn, etc.) from the old `Knowledge/Test/...` keys are orphaned. If the user customized them and wants them back, hand-edit `.obsidian/plugins/csv-card-view/data.json` and rename the keys. Otherwise auto-detection runs from scratch.
+
+---
+
+## Final reflection (multi-session arc)
+
+This codebase started the session as a working Obsidian plugin with a brittle mobile dashboard story. The arc went:
+
+1. **Stop the bleeding** — three reported mobile bugs (books crashed on `1984.localeCompare`, quotes showed "Untitled" everywhere, movies showed "No" pills). Patching the generated `.md` files seemed obvious but turned out to be a trap because they're regenerated from `main.ts` templates on each "📱 Mobile" click. The right fix lives in the source.
+
+2. **Build a regression net before more changes** — `test-mobile-dashboards.mjs` extracts each dashboard's `dataviewjs` block and runs it against a stubbed Dataview runtime backed by the real CSVs (Papa Parse with `dynamicTyping: true` so the `1984` Number coercion reproduces). This single investment paid off repeatedly: every subsequent change ran through it and surfaced regressions empirically rather than via user reports. A second tool, `regenerate-mobile-dashboards.mjs`, mirrors the plugin's dispatcher so dashboards can be stamped headlessly — no reload-Obsidian-and-click-five-buttons loop.
+
+3. **Hand-tuning each file shape doesn't scale** — fixing movies to show year/rating/theme/green-dot via mobile-specific code was the easy path; refactoring Library into a single data-driven render that walks a `cardFields` list was the right one. The same logic now serves books, movies, quotes, and any future file shape. The Columns modal gained a checkbox grid so users override the auto-detection without editing code.
+
+4. **Portable paths beat clever paths** — three rounds of path strategy: sibling (broke when dashboards moved to `Mobile/`) → vault-relative (broke when the parent folder moved) → `../` with a proper `resolvePath` segment walker (survives any folder move). 9 tests pin the resolver against future regressions. The user is about to test this for real by moving `Test/` → `Library/`.
+
+5. **Data hygiene worth doing once** — the `⭐️` (U+2B50 + U+FE0F) vs `★` (U+2605) battle isn't visible to the eye but breaks CSV round-trips. Same with `Yes`/`No` vs `Watched`/`Unwatched` — semantically identical, but only the latter renders as a meaningful kanban subgroup label. Both fixed via one-shot normalization scripts with backups, run once and forgotten.
+
+**Two lessons that should outlast this session**:
+
+- **Generated artifacts are not the source of truth.** When the same content is regenerated from a template, fixing the artifact is a debt — fix the template or expect the patch to vanish.
+- **Build the test harness before the third bug, not after.** A 175-line simulator turned "I think this works" into "the CI knows this works." Every subsequent feature was cheaper because the safety net was already there.
+
+**Open follow-ups** (already in Known issues):
+- `fileConfigs` keys don't follow renames → orphans on file move.
+- Mobile folder structure could be configurable (currently hardcoded `Mobile/` sibling).
+- Multi-value select for Category — picker sets a single string today.
 
 ---
 

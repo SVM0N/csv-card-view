@@ -14,7 +14,7 @@ import path from "node:path";
 import XLSX from "xlsx";
 
 const VAULT = "/Users/simon/Library/Mobile Documents/iCloud~md~obsidian/Documents/Brain";
-const TEST_DIR = path.join(VAULT, "Knowledge/Test");
+const TEST_DIR = path.join(VAULT, "Knowledge/Library");
 const HELPERS_DIR = path.join(TEST_DIR, "_csv_helpers");
 
 const REPLACE = {

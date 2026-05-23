@@ -24,11 +24,11 @@ import Papa from "papaparse";
 
 const VAULT = "/Users/simon/Library/Mobile Documents/iCloud~md~obsidian/Documents/Brain";
 const DASHBOARDS = [
-  "Knowledge/Test/Mobile/movies.md",
-  "Knowledge/Test/Mobile/quotes.md",
-  "Knowledge/Test/Mobile/books.md",
-  "Knowledge/Test/Mobile/dictionary.md",
-  "Knowledge/Test/Mobile/habit_tracker.md",
+  "Knowledge/Library/Mobile/movies.md",
+  "Knowledge/Library/Mobile/quotes.md",
+  "Knowledge/Library/Mobile/books.md",
+  "Knowledge/Library/Mobile/dictionary.md",
+  "Knowledge/Library/Mobile/habit_tracker.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -288,17 +288,17 @@ async function assertGenericDashboard(relPath, expectations) {
 
 console.log("Mobile dashboard simulator\n==========================");
 
-await assertDashboard("Knowledge/Test/Mobile/books.md", {
+await assertDashboard("Knowledge/Library/Mobile/books.md", {
   minTitles: 5,
   noUntitled: true,
 });
 
-await assertDashboard("Knowledge/Test/Mobile/quotes.md", {
+await assertDashboard("Knowledge/Library/Mobile/quotes.md", {
   minTitles: 5,
   noUntitled: true,
 });
 
-await assertDashboard("Knowledge/Test/Mobile/movies.md", {
+await assertDashboard("Knowledge/Library/Mobile/movies.md", {
   minTitles: 5,
   noUntitled: true,
   noNegativePills: true,
@@ -310,7 +310,7 @@ await assertDashboard("Knowledge/Test/Mobile/movies.md", {
 });
 
 // Generic dashboard (dictionary) — expandable scrollable table, no kanban cards.
-await assertGenericDashboard("Knowledge/Test/Mobile/dictionary.md", {
+await assertGenericDashboard("Knowledge/Library/Mobile/dictionary.md", {
   minRows: 5,
 });
 

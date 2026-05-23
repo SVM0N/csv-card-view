@@ -19,7 +19,7 @@ import path from "node:path";
 import Papa from "papaparse";
 
 const VAULT = "/Users/simon/Library/Mobile Documents/iCloud~md~obsidian/Documents/Brain";
-const TEST_DIR = "Knowledge/Test";
+const TEST_DIR = "Knowledge/Library";
 const HELPERS_REL = `${TEST_DIR}/_csv_helpers`;
 
 // ---------------------------------------------------------------------------
