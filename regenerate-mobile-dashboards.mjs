@@ -75,18 +75,16 @@ const LIBRARY_STYLES = `
     .csv-m-toggle { display:flex; gap:8px; margin-bottom:16px; }
     .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
-    .csv-m-section { margin-bottom:18px; }
+    .csv-m-section { margin-bottom:14px; }
     .csv-m-section summary { list-style:none; cursor:pointer; padding:6px 4px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; user-select:none; color:var(--text-normal); }
     .csv-m-section summary::-webkit-details-marker { display:none; }
     .csv-m-section summary .arrow { font-size:11px; color:var(--text-faint); transition:transform 0.2s; line-height:1; }
     .csv-m-section[open] summary .arrow { transform:rotate(90deg); }
     .csv-m-section summary .count { font-weight:500; font-size:12px; color:var(--text-faint); margin-left:auto; }
-    .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:10px 0 4px; }
+    .csv-m-grid { display:grid; grid-template-columns:1fr; gap:8px; padding:8px 0 2px; }
     .csv-m-grid.compact { grid-template-columns:1fr 1fr; gap:8px; }
-    .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); display:flex; flex-direction:column; gap:4px; }
-    .csv-m-grid.compact .csv-m-card { padding:10px 12px; }
-    .csv-m-card-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; line-height:1.3; }
-    .csv-m-grid.compact .csv-m-card-title { font-size:13px; }
+    .csv-m-card { padding:10px 12px; border-radius:10px; background:var(--background-secondary); display:flex; flex-direction:column; gap:4px; }
+    .csv-m-card-title { font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; line-height:1.3; }
     .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--csv-green, #30A14E); flex-shrink:0; }
     .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
     .csv-m-card-year { font-size:11px; color:var(--text-muted); }
