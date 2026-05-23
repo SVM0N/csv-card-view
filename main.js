@@ -46356,7 +46356,15 @@ var XLSXCardView = class extends import_obsidian2.FileView {
       "Stage",
       "stage",
       "Read",
-      "read"
+      "read",
+      "Watched",
+      "watched",
+      "Seen",
+      "seen",
+      "Done",
+      "done",
+      "Completed",
+      "completed"
     ]);
   }
   getCategoryCol() {

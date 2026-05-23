@@ -209,6 +209,8 @@ export class XLSXCardView extends FileView {
       "Progress","progress",
       "Stage","stage",
       "Read","read",
+      "Watched","watched","Seen","seen",
+      "Done","done","Completed","completed",
     ]);
   }
 
