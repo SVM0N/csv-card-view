@@ -37,10 +37,10 @@
 }
 
 .csv-toolbar-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--csv-text);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -602,10 +602,12 @@
   background: var(--background-modifier-hover);
 }
 
-.csv-table-notes-cell {
-  color: var(--csv-text-muted) !important;
+/* Higher specificity than `.csv-table td` so we can drop the !important
+   that the original rule used to win the cascade. */
+.csv-table td.csv-table-notes-cell {
+  color: var(--csv-text-muted);
   font-style: italic;
-  font-size: 12px !important;
+  font-size: 12px;
   max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
@@ -1456,9 +1458,11 @@ td .csv-select-chip {
 }
 
 .csv-expander-field-label {
-  font-size: 10px;
+  /* Matches the 11px / 0.05em tracking used by every other uppercase label
+     in the plugin (.csv-field-label, .csv-modal-label, .csv-table th). */
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--csv-text-faint);
   white-space: nowrap;

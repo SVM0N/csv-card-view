@@ -75,26 +75,26 @@ const LIBRARY_STYLES = `
     .csv-m-toggle { display:flex; gap:8px; margin-bottom:16px; }
     .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
-    .csv-m-section { margin-bottom:20px; }
-    .csv-m-section summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:8px; font-weight:600; font-size:13px; letter-spacing:0.03em; display:flex; align-items:center; gap:8px; user-select:none; border:1px solid var(--background-modifier-border); }
+    .csv-m-section { margin-bottom:18px; }
+    .csv-m-section summary { list-style:none; cursor:pointer; padding:6px 4px; font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px; user-select:none; color:var(--text-normal); }
     .csv-m-section summary::-webkit-details-marker { display:none; }
-    .csv-m-section summary .arrow { font-size:10px; transition:transform 0.2s; }
+    .csv-m-section summary .arrow { font-size:11px; color:var(--text-faint); transition:transform 0.2s; line-height:1; }
     .csv-m-section[open] summary .arrow { transform:rotate(90deg); }
-    .csv-m-section summary .count { font-weight:400; font-size:11px; opacity:0.5; margin-left:auto; }
-    .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:12px 0; }
+    .csv-m-section summary .count { font-weight:500; font-size:12px; color:var(--text-faint); margin-left:auto; }
+    .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:10px 0 4px; }
     .csv-m-grid.compact { grid-template-columns:1fr 1fr; gap:8px; }
     .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); display:flex; flex-direction:column; gap:4px; }
     .csv-m-grid.compact .csv-m-card { padding:10px 12px; }
-    .csv-m-card-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; }
+    .csv-m-card-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; line-height:1.3; }
     .csv-m-grid.compact .csv-m-card-title { font-size:13px; }
-    .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#5A8C4A; flex-shrink:0; }
+    .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#34a853; flex-shrink:0; }
     .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
     .csv-m-card-year { font-size:11px; color:var(--text-muted); }
     .csv-m-card-rating { font-size:11px; color:var(--text-muted); letter-spacing:1px; }
-    .csv-m-card-theme { display:inline-block; align-self:flex-start; font-size:10px; padding:2px 6px; border-radius:3px; background:var(--background-modifier-border); color:var(--text-muted); margin-top:2px; }
-    .csv-m-card-status { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; margin-top:6px; background:var(--background-modifier-border); color:var(--text-muted); }
-    .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(90,140,74,0.2); color:#5A8C4A; }
-    .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(74,122,155,0.2); color:#4A7A9B; }
+    .csv-m-card-theme { display:inline-block; align-self:flex-start; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--background-modifier-border); color:var(--text-muted); margin-top:4px; }
+    .csv-m-card-status { display:inline-block; align-self:flex-start; font-size:11px; padding:2px 8px; border-radius:999px; margin-top:4px; background:var(--background-modifier-border); color:var(--text-muted); }
+    .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(52,168,83,0.15); color:#34a853; }
+    .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(66,133,244,0.15); color:#4285f4; }
   `;
 
 const FRONTMATTER = `---
@@ -159,7 +159,8 @@ if (!csvData || !csvData.length) {
     const headerRow = thead.createEl("tr");
     [titleKey, categoryCol, statusCol].filter(Boolean).forEach(h => {
       const th = headerRow.createEl("th", { text: h });
-      th.style.cssText = "text-align:left;padding:8px 10px;font-weight:500;color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--background-modifier-border);";
+      // Match desktop table convention: uppercase, 11px, tracked, muted.
+      th.style.cssText = "text-align:left;padding:8px 10px;font-weight:600;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--background-modifier-border);";
     });
     const tbody = table.createEl("tbody");
     data.slice(-30).reverse().forEach(r => {
@@ -277,7 +278,7 @@ if (!csvData || !csvData.length) {
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
     .csv-m-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--background-modifier-border); border-radius:8px; }
     .csv-m-tablewrap table { min-width:100%; border-collapse:collapse; font-size:13px; }
-    .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:500; color:var(--text-muted); font-size:12px; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
+    .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:600; color:var(--text-faint); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
     .csv-m-tablewrap td { padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--background-modifier-border); }
     /* Keep short fields on one line; the last column (typically long text like
        Meaning or Description) is the only one that wraps. */
