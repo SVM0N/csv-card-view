@@ -276,9 +276,13 @@ if (!csvData || !csvData.length) {
     .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
     .csv-m-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--background-modifier-border); border-radius:8px; }
-    .csv-m-tablewrap table { width:100%; border-collapse:collapse; font-size:13px; }
+    .csv-m-tablewrap table { min-width:100%; border-collapse:collapse; font-size:13px; }
     .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:500; color:var(--text-muted); font-size:12px; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
     .csv-m-tablewrap td { padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--background-modifier-border); }
+    /* Keep short fields on one line; the last column (typically long text like
+       Meaning or Description) is the only one that wraps. */
+    .csv-m-tablewrap td:not(:last-child) { white-space:nowrap; }
+    .csv-m-tablewrap td:last-child { white-space:normal; min-width:200px; }
     .csv-m-tablewrap tr:last-child td { border-bottom:none; }
     .csv-m-hint { color:var(--text-faint); font-size:12px; margin-top:8px; }
   \`;

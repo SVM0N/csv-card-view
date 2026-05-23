@@ -45697,6 +45697,23 @@ function resolvePath(input, baseFolder) {
 function titleCase(str) {
   return str.split(/[\s_-]+/).map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 }
+function formatRatingForDisplay(raw, columnName) {
+  const v = (raw != null ? raw : "").trim();
+  if (!v)
+    return "";
+  const lower = v.toLowerCase();
+  if (lower === "unrated" || v === "\u2014" || v === "-")
+    return "";
+  if (/[★⭐☆]/.test(v))
+    return v;
+  if (/^\d+$/.test(v)) {
+    const n = parseInt(v, 10);
+    if (n >= 1 && n <= 5)
+      return "\u2605".repeat(n);
+  }
+  const mapped = formatRating(v, columnName);
+  return mapped && mapped !== v && mapped !== "\u2014" ? mapped : "";
+}
 function formatRating(value, columnName) {
   var _a;
   const col = columnName.toLowerCase();
@@ -45991,7 +46008,7 @@ var FileConfigModal = class extends import_obsidian.Modal {
     this.onSave = onSave;
   }
   onOpen() {
-    var _a;
+    var _a, _b;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("csv-add-modal");
@@ -46043,6 +46060,37 @@ var FileConfigModal = class extends import_obsidian.Modal {
           }
         } else {
           this.current.habitColumns = this.current.habitColumns.filter((c) => c !== h);
+        }
+      });
+    });
+    const cardRow = form.createDiv({ cls: "csv-modal-row" });
+    cardRow.createEl("label", { text: "Card fields (Library / Kanban)", cls: "csv-modal-label" });
+    cardRow.createEl("p", { cls: "csv-modal-hint", text: "Columns shown under each card title. Rating renders as stars, theme/tag columns as pills. Leave all unchecked for title-only cards." });
+    const cardGrid = cardRow.createDiv({ cls: "csv-modal-checkbox-grid" });
+    const autoDetect = (candidates) => this.headers.find((h) => candidates.some((c) => c.toLowerCase() === h.toLowerCase()));
+    const autoFields = [
+      autoDetect(["Author", "Authors", "Director", "Artist", "Creator", "By"]),
+      autoDetect(["Year", "Date", "Released"]),
+      autoDetect(["Rating", "Score", "Score /5", "Stars"]),
+      autoDetect(["Theme", "Tags", "Tag", "Mood"])
+    ].filter((c) => !!c);
+    const selectedCard = new Set((_b = this.current.cardFields) != null ? _b : autoFields);
+    const isCustom = !!this.current.cardFields;
+    this.headers.forEach((h) => {
+      const label = cardGrid.createEl("label", { cls: "csv-modal-checkbox-label" });
+      const checkbox = label.createEl("input", { type: "checkbox" });
+      checkbox.checked = selectedCard.has(h);
+      if (autoFields.includes(h) && !isCustom)
+        label.addClass("auto-detected");
+      label.createSpan({ text: h });
+      checkbox.addEventListener("change", () => {
+        if (!this.current.cardFields)
+          this.current.cardFields = [...autoFields];
+        if (checkbox.checked) {
+          if (!this.current.cardFields.includes(h))
+            this.current.cardFields.push(h);
+        } else {
+          this.current.cardFields = this.current.cardFields.filter((c) => c !== h);
         }
       });
     });
@@ -47461,9 +47509,13 @@ if (!csvData || !csvData.length) {
     .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
     .csv-m-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--background-modifier-border); border-radius:8px; }
-    .csv-m-tablewrap table { width:100%; border-collapse:collapse; font-size:13px; }
+    .csv-m-tablewrap table { min-width:100%; border-collapse:collapse; font-size:13px; }
     .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:500; color:var(--text-muted); font-size:12px; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
     .csv-m-tablewrap td { padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--background-modifier-border); }
+    /* Keep short fields on one line; the last column (typically long text like
+       Meaning or Description) is the only one that wraps. */
+    .csv-m-tablewrap td:not(:last-child) { white-space:nowrap; }
+    .csv-m-tablewrap td:last-child { white-space:normal; min-width:200px; }
     .csv-m-tablewrap tr:last-child td { border-bottom:none; }
     .csv-m-hint { color:var(--text-faint); font-size:12px; margin-top:8px; }
   \`;
@@ -47619,6 +47671,7 @@ if (!csvData || !csvData.length) {
     });
     const sectionsWrap = container.createDiv({ cls: "csv-library-sections" });
     Object.keys(groups).sort().forEach((genre) => {
+      var _a2;
       const items = groups[genre];
       const section = sectionsWrap.createEl("details", { cls: "csv-library-section" });
       section.open = true;
@@ -47626,9 +47679,9 @@ if (!csvData || !csvData.length) {
       summary.innerHTML = `<span class="csv-library-arrow">\u25B6</span> ${genre} <span class="csv-library-count">${items.length}</span>`;
       const grid = section.createDiv({ cls: "csv-library-grid" });
       items.sort((a, b) => {
-        var _a2, _b, _c, _d;
+        var _a3, _b, _c, _d;
         if (sc) {
-          const statusA = ((_a2 = a[sc]) != null ? _a2 : "").toLowerCase();
+          const statusA = ((_a3 = a[sc]) != null ? _a3 : "").toLowerCase();
           const statusB = ((_b = b[sc]) != null ? _b : "").toLowerCase();
           const inProgressA = commonInProgress.includes(statusA);
           const inProgressB = commonInProgress.includes(statusB);
@@ -47637,51 +47690,53 @@ if (!csvData || !csvData.length) {
         }
         return ((_c = a[titleCol]) != null ? _c : "").localeCompare((_d = b[titleCol]) != null ? _d : "");
       });
+      const yearCol = this.resolveCol(["Year", "year", "Date", "date"]);
+      const ratingCol = this.resolveCol(["Rating", "rating", "Score", "score", "Score /5", "Stars", "stars"]);
+      const themeCol = this.resolveCol(["Theme", "theme", "Tags", "tags", "Tag", "tag", "Mood", "mood"]);
+      const autoFields = [authorCol, yearCol, ratingCol, themeCol].filter((c) => !!c);
+      const cardFields = (_a2 = this.fileCfg.cardFields) != null ? _a2 : autoFields;
       items.forEach((row) => {
-        var _a2, _b, _c, _d;
+        var _a3, _b, _c, _d;
         const card = grid.createDiv({ cls: "csv-library-card" });
         const titleWrap = card.createDiv({ cls: "csv-library-card-title" });
         if (sc) {
-          const status = ((_a2 = row[sc]) != null ? _a2 : "").toLowerCase();
+          const status = ((_a3 = row[sc]) != null ? _a3 : "").toLowerCase();
           if (commonDone.includes(status)) {
             titleWrap.createSpan({ cls: "csv-library-done-dot" });
           }
         }
         titleWrap.createSpan({ text: (_b = row[titleCol]) != null ? _b : "Untitled" });
-        const meta = [];
-        if (authorCol && row[authorCol])
-          meta.push(row[authorCol]);
-        const yearCol = this.resolveCol(["Year", "year", "Date", "date"]);
-        if (yearCol && row[yearCol]) {
-          const yearVal = row[yearCol];
-          const yearMatch = yearVal.match(/\d{4}/);
-          if (yearMatch)
-            meta.push(yearMatch[0]);
-        }
-        if (meta.length) {
-          card.createDiv({ cls: "csv-library-card-meta", text: meta.join(" \xB7 ") });
-        }
-        const ratingCol = this.resolveCol(["Rating", "rating", "Score", "score", "Score /5"]);
-        if (ratingCol && row[ratingCol]) {
-          const ratingVal = row[ratingCol].trim();
-          const stars = { "1": "\u2605", "2": "\u2605\u2605", "3": "\u2605\u2605\u2605", "4": "\u2605\u2605\u2605\u2605", "5": "\u2605\u2605\u2605\u2605\u2605" };
-          const starDisplay = (_c = stars[ratingVal]) != null ? _c : formatRating(ratingVal, ratingCol);
-          if (starDisplay && starDisplay !== ratingVal) {
-            card.createDiv({ cls: "csv-library-card-rating", text: starDisplay });
+        const metaParts = [];
+        const themeFieldsForCard = [];
+        for (const col of cardFields) {
+          if (!col)
+            continue;
+          const raw = String((_c = row[col]) != null ? _c : "").trim();
+          if (!raw)
+            continue;
+          if (col === ratingCol) {
+            const display = formatRatingForDisplay(raw, col);
+            if (display)
+              card.createDiv({ cls: "csv-library-card-rating", text: display });
+          } else if (col === themeCol) {
+            themeFieldsForCard.push(...raw.split(",").map((t) => t.trim()).filter(Boolean));
+          } else if (col === yearCol) {
+            const m = raw.match(/\d{4}/);
+            metaParts.push(m ? m[0] : raw);
+          } else {
+            metaParts.push(raw);
           }
         }
-        const tagsCol = this.resolveCol(["Theme", "theme", "Tags", "tags", "Tag", "tag"]);
-        const tags = [];
-        if (tagsCol && row[tagsCol]) {
-          tags.push(...row[tagsCol].split(",").map((t) => t.trim()).filter(Boolean));
+        if (metaParts.length) {
+          card.createDiv({ cls: "csv-library-card-meta", text: metaParts.join(" \xB7 ") });
         }
         if (this.libraryGenreFilter !== "all") {
           const otherGenres = ((_d = row[cc]) != null ? _d : "").split(",").map((c) => c.trim()).filter((c) => c && c.toLowerCase() !== this.libraryGenreFilter.toLowerCase());
-          tags.push(...otherGenres);
+          themeFieldsForCard.push(...otherGenres);
         }
-        if (tags.length) {
+        if (themeFieldsForCard.length) {
           const tagsWrap = card.createDiv({ cls: "csv-library-card-tags" });
-          tags.slice(0, 3).forEach((tag) => {
+          themeFieldsForCard.slice(0, 3).forEach((tag) => {
             tagsWrap.createSpan({ cls: "csv-library-card-tag", text: tag });
           });
         }

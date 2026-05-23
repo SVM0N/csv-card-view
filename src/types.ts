@@ -9,6 +9,9 @@ export interface FileConfig {
   notesColumn?: string;
   statusColumn?: string;
   habitColumns?: string[];  // Columns to track as habits in dashboard view
+  cardFields?: string[];    // Columns to surface on Library / Kanban cards.
+                            // If unset, auto-detect (author/year/rating/theme).
+                            // Empty array means "no extra fields, just title".
   defaultMode?: ViewMode;
   sortNewestFirst?: boolean;  // Sort by date column, newest first
 }

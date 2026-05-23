@@ -41,6 +41,27 @@ export function titleCase(str: string): string {
   return str.split(/[\s_-]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 }
 
+/**
+ * Display-ready rating string for a card. Returns "" if the value should not
+ * be shown (empty, "unrated", or unmappable). Three input shapes handled:
+ *   - already-star glyphs: "★★★★☆" / "⭐️⭐️⭐️"     → returned as-is
+ *   - numeric 1–5:          "4" / "5"                   → "★★★★" / "★★★★★"
+ *   - text labels:          "excellent" / "good" / etc. → mapped via formatRating
+ */
+export function formatRatingForDisplay(raw: string, columnName: string): string {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  const lower = v.toLowerCase();
+  if (lower === "unrated" || v === "—" || v === "-") return "";
+  if (/[★⭐☆]/.test(v)) return v; // already glyph-based, render as-is
+  if (/^\d+$/.test(v)) {
+    const n = parseInt(v, 10);
+    if (n >= 1 && n <= 5) return "★".repeat(n);
+  }
+  const mapped = formatRating(v, columnName);
+  return mapped && mapped !== v && mapped !== "—" ? mapped : "";
+}
+
 export function formatRating(value: string, columnName: string): string {
   const col = columnName.toLowerCase();
   if (!["rating", "score", "score /5"].includes(col)) return value;

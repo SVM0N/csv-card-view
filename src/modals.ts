@@ -319,6 +319,44 @@ export class FileConfigModal extends Modal {
       });
     });
 
+    // Card fields — which columns to surface on Library/Kanban cards.
+    // If never set, defaults to auto-detected (author/year/rating/theme).
+    // Once the user touches the checkboxes, an explicit list is stored.
+    const cardRow = form.createDiv({ cls: "csv-modal-row" });
+    cardRow.createEl("label", { text: "Card fields (Library / Kanban)", cls: "csv-modal-label" });
+    cardRow.createEl("p", { cls: "csv-modal-hint", text: "Columns shown under each card title. Rating renders as stars, theme/tag columns as pills. Leave all unchecked for title-only cards." });
+    const cardGrid = cardRow.createDiv({ cls: "csv-modal-checkbox-grid" });
+
+    // Auto-detected defaults — used when cardFields is undefined.
+    const autoDetect = (candidates: string[]) =>
+      this.headers.find(h => candidates.some(c => c.toLowerCase() === h.toLowerCase()));
+    const autoFields = [
+      autoDetect(["Author","Authors","Director","Artist","Creator","By"]),
+      autoDetect(["Year","Date","Released"]),
+      autoDetect(["Rating","Score","Score /5","Stars"]),
+      autoDetect(["Theme","Tags","Tag","Mood"]),
+    ].filter((c): c is string => !!c);
+    const selectedCard = new Set(this.current.cardFields ?? autoFields);
+    const isCustom = !!this.current.cardFields;
+
+    this.headers.forEach(h => {
+      const label = cardGrid.createEl("label", { cls: "csv-modal-checkbox-label" });
+      const checkbox = label.createEl("input", { type: "checkbox" });
+      checkbox.checked = selectedCard.has(h);
+      if (autoFields.includes(h) && !isCustom) label.addClass("auto-detected");
+      label.createSpan({ text: h });
+
+      checkbox.addEventListener("change", () => {
+        // First touch promotes auto-detected defaults into an explicit list.
+        if (!this.current.cardFields) this.current.cardFields = [...autoFields];
+        if (checkbox.checked) {
+          if (!this.current.cardFields.includes(h)) this.current.cardFields.push(h);
+        } else {
+          this.current.cardFields = this.current.cardFields.filter(c => c !== h);
+        }
+      });
+    });
+
     // Default mode for this file
     const modeRow = form.createDiv({ cls: "csv-modal-row" });
     modeRow.createEl("label", { text: "Default view", cls: "csv-modal-label" });

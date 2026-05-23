@@ -44,6 +44,27 @@ function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
 }
 
+// Copy of formatRatingForDisplay from src/utils.ts — used by the Library
+// card render to turn a Rating cell value into a star string (or "" to skip).
+function formatRatingForDisplay(raw, columnName) {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  const lower = v.toLowerCase();
+  if (lower === "unrated" || v === "—" || v === "-") return "";
+  if (/[★⭐☆]/.test(v)) return v;
+  if (/^\d+$/.test(v)) {
+    const n = parseInt(v, 10);
+    if (n >= 1 && n <= 5) return "★".repeat(n);
+  }
+  const col = columnName.toLowerCase();
+  if (!["rating", "score", "score /5"].includes(col)) return "";
+  const map = {
+    "excellent": "★★★★★", "great": "★★★★★", "good": "★★★★☆",
+    "fair": "★★★☆☆", "poor": "★★☆☆☆", "bad": "★☆☆☆☆",
+  };
+  return map[lower] ?? "";
+}
+
 // Copy of resolvePath from src/utils.ts — used by the csv-add code block to
 // turn `file: ../books.xlsx` into a real vault path.
 function resolvePath(input, baseFolder) {
@@ -702,6 +723,56 @@ test("sortByDate: oldest first", () => {
   assertEqual(sorted[0].date, "2025-05-20");
   assertEqual(sorted[1].date, "2025-05-21");
   assertEqual(sorted[2].date, "2025-05-22");
+});
+
+// ============================================================================
+// Rating display
+// ============================================================================
+
+console.log("\n=== formatRatingForDisplay ===\n");
+
+test("rating: empty value → blank (skipped)", () => {
+  assertEqual(formatRatingForDisplay("", "Rating"), "");
+  assertEqual(formatRatingForDisplay("   ", "Rating"), "");
+});
+
+test("rating: 'unrated' / em-dash / hyphen → blank", () => {
+  assertEqual(formatRatingForDisplay("unrated", "Rating"), "");
+  assertEqual(formatRatingForDisplay("Unrated", "Rating"), "");
+  assertEqual(formatRatingForDisplay("—", "Rating"), "");
+  assertEqual(formatRatingForDisplay("-", "Rating"), "");
+});
+
+test("rating: already-star glyphs pass through (★)", () => {
+  assertEqual(formatRatingForDisplay("★★★★", "Rating"), "★★★★");
+  assertEqual(formatRatingForDisplay("★★★☆☆", "Rating"), "★★★☆☆");
+});
+
+test("rating: already-star glyphs pass through (⭐ legacy)", () => {
+  assertEqual(formatRatingForDisplay("⭐⭐⭐", "Rating"), "⭐⭐⭐");
+});
+
+test("rating: numeric 1–5 → ★ repeated", () => {
+  assertEqual(formatRatingForDisplay("3", "Rating"), "★★★");
+  assertEqual(formatRatingForDisplay("5", "Rating"), "★★★★★");
+});
+
+test("rating: numeric out of range → blank", () => {
+  assertEqual(formatRatingForDisplay("0", "Rating"), "");
+  assertEqual(formatRatingForDisplay("6", "Rating"), "");
+});
+
+test("rating: text labels map via formatRating", () => {
+  assertEqual(formatRatingForDisplay("excellent", "Rating"), "★★★★★");
+  assertEqual(formatRatingForDisplay("Good", "Rating"), "★★★★☆");
+});
+
+test("rating: unknown text on Rating column → blank", () => {
+  assertEqual(formatRatingForDisplay("amazing", "Rating"), "");
+});
+
+test("rating: non-Rating column with unknown text → blank", () => {
+  assertEqual(formatRatingForDisplay("anything", "Notes"), "");
 });
 
 // ============================================================================

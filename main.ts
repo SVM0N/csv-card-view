@@ -19,7 +19,7 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, Category
 
 // Import from src modules
 import { CSVRow, ViewMode, FileConfig, CardViewSettings, DEFAULT_SETTINGS, CARD_VIEW_TYPE } from "./src/types";
-import { sanitizeFilename, titleCase, formatRating, showSelectPicker, resolvePath } from "./src/utils";
+import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath } from "./src/utils";
 import { AddEntryModal, NoteExpanderModal, FileConfigModal } from "./src/modals";
 
 // Register Chart.js components
@@ -1459,9 +1459,13 @@ if (!csvData || !csvData.length) {
     .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
     .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
     .csv-m-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--background-modifier-border); border-radius:8px; }
-    .csv-m-tablewrap table { width:100%; border-collapse:collapse; font-size:13px; }
+    .csv-m-tablewrap table { min-width:100%; border-collapse:collapse; font-size:13px; }
     .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:500; color:var(--text-muted); font-size:12px; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
     .csv-m-tablewrap td { padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--background-modifier-border); }
+    /* Keep short fields on one line; the last column (typically long text like
+       Meaning or Description) is the only one that wraps. */
+    .csv-m-tablewrap td:not(:last-child) { white-space:nowrap; }
+    .csv-m-tablewrap td:last-child { white-space:normal; min-width:200px; }
     .csv-m-tablewrap tr:last-child td { border-bottom:none; }
     .csv-m-hint { color:var(--text-faint); font-size:12px; margin-top:8px; }
   \`;
@@ -1665,10 +1669,19 @@ if (!csvData || !csvData.length) {
         return (a[titleCol] ?? "").localeCompare(b[titleCol] ?? "");
       });
 
+      // Resolve which extra columns to surface on each card.
+      // If the user picked cardFields in the per-file Columns modal, use that list verbatim.
+      // Otherwise auto-detect: author, year, rating, theme.
+      const yearCol = this.resolveCol(["Year", "year", "Date", "date"]);
+      const ratingCol = this.resolveCol(["Rating", "rating", "Score", "score", "Score /5", "Stars", "stars"]);
+      const themeCol = this.resolveCol(["Theme", "theme", "Tags", "tags", "Tag", "tag", "Mood", "mood"]);
+      const autoFields = [authorCol, yearCol, ratingCol, themeCol].filter((c): c is string => !!c);
+      const cardFields = this.fileCfg.cardFields ?? autoFields;
+
       items.forEach(row => {
         const card = grid.createDiv({ cls: "csv-library-card" });
 
-        // Title with green dot for done
+        // Title with green dot for "done"-style status (watched, read, finished, etc.)
         const titleWrap = card.createDiv({ cls: "csv-library-card-title" });
         if (sc) {
           const status = (row[sc] ?? "").toLowerCase();
@@ -1678,46 +1691,42 @@ if (!csvData || !csvData.length) {
         }
         titleWrap.createSpan({ text: row[titleCol] ?? "Untitled" });
 
-        // Author/year meta
-        const meta: string[] = [];
-        if (authorCol && row[authorCol]) meta.push(row[authorCol]);
-        // Look for year column
-        const yearCol = this.resolveCol(["Year", "year", "Date", "date"]);
-        if (yearCol && row[yearCol]) {
-          const yearVal = row[yearCol];
-          // Extract year if it's a full date
-          const yearMatch = yearVal.match(/\d{4}/);
-          if (yearMatch) meta.push(yearMatch[0]);
-        }
-        if (meta.length) {
-          card.createDiv({ cls: "csv-library-card-meta", text: meta.join(" · ") });
-        }
+        // Walk cardFields in order, rendering each with the right element type.
+        // Rating → stars line; theme/tag/category aliases → pills; everything else → meta line.
+        const metaParts: string[] = [];
+        const themeFieldsForCard: string[] = [];
+        for (const col of cardFields) {
+          if (!col) continue;
+          const raw = String(row[col] ?? "").trim();
+          if (!raw) continue;
 
-        // Rating
-        const ratingCol = this.resolveCol(["Rating", "rating", "Score", "score", "Score /5"]);
-        if (ratingCol && row[ratingCol]) {
-          const ratingVal = row[ratingCol].trim();
-          const stars: Record<string, string> = { "1": "★", "2": "★★", "3": "★★★", "4": "★★★★", "5": "★★★★★" };
-          const starDisplay = stars[ratingVal] ?? formatRating(ratingVal, ratingCol);
-          if (starDisplay && starDisplay !== ratingVal) {
-            card.createDiv({ cls: "csv-library-card-rating", text: starDisplay });
+          if (col === ratingCol) {
+            // Render rating as stars on its own line. Already-star data passes through.
+            const display = formatRatingForDisplay(raw, col);
+            if (display) card.createDiv({ cls: "csv-library-card-rating", text: display });
+          } else if (col === themeCol) {
+            // Comma-separated theme values render as multiple pills.
+            themeFieldsForCard.push(...raw.split(",").map(t => t.trim()).filter(Boolean));
+          } else if (col === yearCol) {
+            // Year — extract 4-digit if it's a full date.
+            const m = raw.match(/\d{4}/);
+            metaParts.push(m ? m[0] : raw);
+          } else {
+            metaParts.push(raw);
           }
         }
-
-        // Tags (theme, tags column, or secondary genres)
-        const tagsCol = this.resolveCol(["Theme", "theme", "Tags", "tags", "Tag", "tag"]);
-        const tags: string[] = [];
-        if (tagsCol && row[tagsCol]) {
-          tags.push(...row[tagsCol].split(",").map(t => t.trim()).filter(Boolean));
+        if (metaParts.length) {
+          card.createDiv({ cls: "csv-library-card-meta", text: metaParts.join(" · ") });
         }
-        // Add secondary genres as tags if filtering by one genre
+
+        // Secondary genres render as extra tags when filtering by a single genre.
         if (this.libraryGenreFilter !== "all") {
           const otherGenres = (row[cc] ?? "").split(",").map(c => c.trim()).filter(c => c && c.toLowerCase() !== this.libraryGenreFilter.toLowerCase());
-          tags.push(...otherGenres);
+          themeFieldsForCard.push(...otherGenres);
         }
-        if (tags.length) {
+        if (themeFieldsForCard.length) {
           const tagsWrap = card.createDiv({ cls: "csv-library-card-tags" });
-          tags.slice(0, 3).forEach(tag => {
+          themeFieldsForCard.slice(0, 3).forEach(tag => {
             tagsWrap.createSpan({ cls: "csv-library-card-tag", text: tag });
           });
         }
