@@ -6,7 +6,7 @@ import {
   Notice,
 } from "obsidian";
 import { CSVRow, FileConfig, ViewMode } from "./types";
-import { showSelectPicker } from "./utils";
+import { showSelectPicker, titleCase } from "./utils";
 
 // ─── Add Entry Modal ──────────────────────────────────────────────────────────
 
@@ -46,7 +46,9 @@ export class AddEntryModal extends Modal {
 
     this.headers.forEach(h => {
       const row = form.createDiv({ cls: "csv-modal-row" });
-      row.createEl("label", { text: h, cls: "csv-modal-label" });
+      // titleCase so the label reads "Author" / "Year" / "Notes" regardless of
+      // how the CSV happens to capitalise its headers (Apple-style row labels).
+      row.createEl("label", { text: titleCase(h), cls: "csv-modal-label" });
 
       if (this.isNotesCol(h)) {
         const ta = row.createEl("textarea", { cls: "csv-modal-textarea", placeholder: "Markdown supported…" });
@@ -156,7 +158,8 @@ export class NoteExpanderModal extends Modal {
     this.headers.forEach(h => {
       if (this.isNotesCol(h)) return; // notes rendered separately below
       const fieldRow = fieldsEl.createDiv({ cls: "csv-expander-field-row" });
-      fieldRow.createDiv({ cls: "csv-expander-field-label", text: h });
+      // titleCase: Apple-style row labels, independent of CSV header casing.
+      fieldRow.createDiv({ cls: "csv-expander-field-label", text: titleCase(h) });
 
       if (this.isSelectCol(h)) {
         const chip = fieldRow.createDiv({ cls: `csv-select-chip ${this.row[h] ? "" : "empty"}` });

@@ -87,14 +87,14 @@ const LIBRARY_STYLES = `
     .csv-m-grid.compact .csv-m-card { padding:10px 12px; }
     .csv-m-card-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; line-height:1.3; }
     .csv-m-grid.compact .csv-m-card-title { font-size:13px; }
-    .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#34a853; flex-shrink:0; }
+    .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--csv-green, #30A14E); flex-shrink:0; }
     .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
     .csv-m-card-year { font-size:11px; color:var(--text-muted); }
     .csv-m-card-rating { font-size:11px; color:var(--text-muted); letter-spacing:1px; }
     .csv-m-card-theme { display:inline-block; align-self:flex-start; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--background-modifier-border); color:var(--text-muted); margin-top:4px; }
     .csv-m-card-status { display:inline-block; align-self:flex-start; font-size:11px; padding:2px 8px; border-radius:999px; margin-top:4px; background:var(--background-modifier-border); color:var(--text-muted); }
-    .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(52,168,83,0.15); color:#34a853; }
-    .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(66,133,244,0.15); color:#4285f4; }
+    .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:var(--csv-green-bg, rgba(52,199,89,0.13)); color:var(--csv-green, #30A14E); }
+    .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:var(--csv-blue-bg, rgba(0,122,255,0.13)); color:var(--csv-blue, #2E7CE6); }
   `;
 
 const FRONTMATTER = `---
@@ -194,11 +194,16 @@ if (!csvData || !csvData.length) {
 
       const grid = section.createEl("div", { cls: "csv-m-grid" + (compactGrid ? " compact" : "") });
 
+      // Sort: green-dotted (read/watched/finished) first, then in-progress,
+      // then the rest. Mirrors desktop Library.
       items.sort((a, b) => {
         const statusA = String(a[statusCol] || "").toLowerCase();
         const statusB = String(b[statusCol] || "").toLowerCase();
-        const inProgressA = statusA.includes("progress") || statusA.includes("reading") || statusA.includes("watching");
-        const inProgressB = statusB.includes("progress") || statusB.includes("reading") || statusB.includes("watching");
+        const isDone = (s) => /^(yes|watched|seen|finished|read|done|completed)$/.test(s);
+        const isInProgress = (s) => s.includes("progress") || s.includes("reading") || s.includes("watching");
+        const doneA = isDone(statusA), doneB = isDone(statusB);
+        if (doneA !== doneB) return doneA ? -1 : 1;
+        const inProgressA = isInProgress(statusA), inProgressB = isInProgress(statusB);
         if (inProgressA !== inProgressB) return inProgressA ? -1 : 1;
         return String(a[titleKey] || "").localeCompare(String(b[titleKey] || ""));
       });

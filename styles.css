@@ -1,5 +1,20 @@
 /* ─── Root & Theme Variables ──────────────────────────────────────────────── */
 
+/* Apple-muted status palette: dialled-darker iOS systemGreen / systemBlue /
+   systemRed / systemOrange so they read as confident-but-quiet on both
+   light and dark themes, instead of the punchy Google Material set. The
+   *-bg companions are the same hue at low opacity for fills. */
+:root {
+  --csv-green:    #30A14E;
+  --csv-green-bg: rgba(52, 199, 89, 0.13);
+  --csv-blue:     #2E7CE6;
+  --csv-blue-bg:  rgba(0, 122, 255, 0.13);
+  --csv-red:      #D5443B;
+  --csv-red-bg:   rgba(255, 59, 48, 0.12);
+  --csv-amber:    #C18000;
+  --csv-amber-bg: rgba(255, 149, 0, 0.13);
+}
+
 .csv-card-view-root {
   --csv-bg: var(--background-primary);
   --csv-surface: var(--background-secondary);
@@ -15,7 +30,7 @@
   --csv-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px var(--csv-border);
   --csv-shadow-hover: 0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px var(--csv-accent);
   --csv-font-mono: var(--font-monospace);
-  
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -220,7 +235,8 @@
 }
 
 .csv-card-title {
-  font-size: 14px;
+  /* 13px to match .csv-kanban-card-title — same semantic across views. */
+  font-size: 13px;
   font-weight: 600;
   color: var(--csv-text);
   white-space: nowrap;
@@ -264,22 +280,22 @@
   color: var(--csv-text-muted);
 }
 
-/* Status badge color variants - sensible defaults */
+/* Status badge color variants — Apple-muted palette */
 .csv-status-badge.status-read,
 .csv-status-badge.status-done,
 .csv-status-badge.status-watched,
 .csv-status-badge.status-finished,
 .csv-status-badge.status-completed {
-  background: rgba(52, 168, 83, 0.15);
-  color: #34a853;
+  background: var(--csv-green-bg);
+  color: var(--csv-green);
 }
 
 .csv-status-badge.status-reading,
 .csv-status-badge.status-watching,
 .csv-status-badge.status-in-progress,
 .csv-status-badge.status-ongoing {
-  background: rgba(66, 133, 244, 0.15);
-  color: #4285f4;
+  background: var(--csv-blue-bg);
+  color: var(--csv-blue);
 }
 
 .csv-status-badge.status-to-read,
@@ -287,15 +303,15 @@
 .csv-status-badge.status-want,
 .csv-status-badge.status-backlog,
 .csv-status-badge.status-queued {
-  background: rgba(251, 188, 4, 0.15);
-  color: #e8a900;
+  background: var(--csv-amber-bg);
+  color: var(--csv-amber);
 }
 
 .csv-status-badge.status-dropped,
 .csv-status-badge.status-abandoned,
 .csv-status-badge.status-dnf {
-  background: rgba(234, 67, 53, 0.12);
-  color: #ea4335;
+  background: var(--csv-red-bg);
+  color: var(--csv-red);
 }
 
 /* Card body */
@@ -320,11 +336,12 @@
 }
 
 .csv-field-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--csv-text-faint);
+  /* Apple convention: row labels (vs section headers) are title case, not
+     uppercase. We just title-case at the JS layer (titleCase()) and let the
+     value sit in the column with its column heading already conveying scope. */
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--csv-text-muted);
   min-width: 80px;
   flex-shrink: 0;
 }
@@ -636,8 +653,8 @@
 }
 
 .csv-table-del-btn:hover {
-  color: #ea4335;
-  background: rgba(234, 67, 53, 0.1);
+  color: var(--csv-red);
+  background: var(--csv-red-bg);
 }
 
 /* ─── Notes File Button ───────────────────────────────────────────────────── */
@@ -755,15 +772,15 @@
 .csv-kanban-status-label.status-watched,
 .csv-kanban-status-label.status-seen,
 .csv-kanban-status-label.status-done {
-  background: rgba(52, 168, 83, 0.15);
-  color: #34a853;
+  background: var(--csv-green-bg);
+  color: var(--csv-green);
 }
 
 .csv-kanban-status-label.status-in-progress,
 .csv-kanban-status-label.status-reading,
 .csv-kanban-status-label.status-watching {
-  background: rgba(66, 133, 244, 0.15);
-  color: #4285f4;
+  background: var(--csv-blue-bg);
+  color: var(--csv-blue);
 }
 
 .csv-kanban-status-label.status-not-started,
@@ -864,18 +881,18 @@
   border-style: dashed;
 }
 
-/* Status color tinting for status chips */
+/* Status color tinting for status chips — Apple-muted palette */
 .csv-select-chip.status-chip-finished,
 .csv-select-chip.status-chip-read {
-  background: rgba(52,168,83,0.12);
-  border-color: rgba(52,168,83,0.3);
-  color: #34a853;
+  background: var(--csv-green-bg);
+  border-color: rgba(52, 199, 89, 0.3);
+  color: var(--csv-green);
 }
 .csv-select-chip.status-chip-in-progress,
 .csv-select-chip.status-chip-reading {
-  background: rgba(66,133,244,0.12);
-  border-color: rgba(66,133,244,0.3);
-  color: #4285f4;
+  background: var(--csv-blue-bg);
+  border-color: rgba(0, 122, 255, 0.3);
+  color: var(--csv-blue);
 }
 .csv-select-chip.status-chip-not-started,
 .csv-select-chip.status-chip-to-read {
@@ -1073,11 +1090,10 @@ td .csv-select-chip {
 }
 
 .csv-modal-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--csv-text-faint);
+  /* Apple convention: modal form row labels in title case. */
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--csv-text-muted);
 }
 
 .csv-modal-input {
@@ -1458,13 +1474,12 @@ td .csv-select-chip {
 }
 
 .csv-expander-field-label {
-  /* Matches the 11px / 0.05em tracking used by every other uppercase label
-     in the plugin (.csv-field-label, .csv-modal-label, .csv-table th). */
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--csv-text-faint);
+  /* Apple convention: in-row labels in title case (titleCase() is applied
+     at the JS layer to the header name). Section headers stay uppercase
+     (see .csv-expander-notes-label, .csv-table th, .csv-kanban-col-title). */
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--csv-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1526,9 +1541,9 @@ td .csv-select-chip {
    compete with Save, then fills on hover so the user knows it'll fire. */
 .csv-expander-delete-btn {
   padding: 8px 14px;
-  border: 1px solid rgba(234, 67, 53, 0.4);
+  border: 1px solid rgba(213, 68, 59, 0.4);
   background: transparent;
-  color: #ea4335;
+  color: var(--csv-red);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
@@ -1537,8 +1552,8 @@ td .csv-select-chip {
 }
 
 .csv-expander-delete-btn:hover {
-  background: #ea4335;
-  border-color: #ea4335;
+  background: var(--csv-red);
+  border-color: var(--csv-red);
   color: white;
 }
 
@@ -1594,7 +1609,7 @@ td .csv-select-chip {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #34a853;
+  background: var(--csv-green);
   flex-shrink: 0;
 }
 
@@ -1693,7 +1708,7 @@ td .csv-select-chip {
 
 .csv-dash-habit.checked {
   background: transparent;
-  border-color: #34a853;
+  border-color: var(--csv-green);
 }
 
 .csv-dash-habit-check {
@@ -1708,7 +1723,7 @@ td .csv-select-chip {
 }
 
 .csv-dash-habit.checked .csv-dash-habit-check {
-  color: #34a853;
+  color: var(--csv-green);
 }
 
 .csv-dash-habit-check:hover {
@@ -1964,11 +1979,11 @@ td .csv-select-chip {
 }
 
 .csv-dash-timeline-cell.done {
-  background: #34a853;
+  background: var(--csv-green);
 }
 
 .csv-dash-timeline-cell.missed {
-  background: #ea4335;
+  background: var(--csv-red);
 }
 
 .csv-dash-timeline-cell.no-entry {
@@ -2055,9 +2070,9 @@ td .csv-select-chip {
    (iOS-Settings style) with hairline-separated rows and one Add button. */
 
 .csv-add-error {
-  color: #ea4335;
+  color: var(--csv-red);
   padding: 8px 12px;
-  background: rgba(234, 67, 53, 0.1);
+  background: var(--csv-red-bg);
   border-radius: var(--csv-radius-sm);
   font-size: 13px;
 }
@@ -2431,7 +2446,7 @@ select.csv-add-row-control {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #5A8C4A;
+  background: var(--csv-green);
   flex-shrink: 0;
 }
 
