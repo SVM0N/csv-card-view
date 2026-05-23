@@ -229,6 +229,35 @@ async function assertDashboard(relPath, expectations) {
       watched.length >= 1,
       `got ${watched.length}`);
   }
+
+  if (expectations.compactGrid) {
+    const grids = collect(container, e => e.classes.has("csv-m-grid"));
+    const compact = grids.filter(g => g.classes.has("compact"));
+    check(`grid uses 2-col compact layout`,
+      compact.length > 0 && compact.length === grids.length,
+      `${compact.length}/${grids.length} grids are compact`);
+  }
+
+  if (expectations.minYears != null) {
+    const years = collect(container, e => e.classes.has("csv-m-card-year"));
+    check(`renders ≥${expectations.minYears} year labels`,
+      years.length >= expectations.minYears,
+      `got ${years.length}`);
+  }
+
+  if (expectations.minRatings != null) {
+    const ratings = collect(container, e => e.classes.has("csv-m-card-rating"));
+    check(`renders ≥${expectations.minRatings} rating labels`,
+      ratings.length >= expectations.minRatings,
+      `got ${ratings.length}`);
+  }
+
+  if (expectations.minThemes != null) {
+    const themes = collect(container, e => e.classes.has("csv-m-card-theme"));
+    check(`renders ≥${expectations.minThemes} theme pills`,
+      themes.length >= expectations.minThemes,
+      `got ${themes.length}`);
+  }
 }
 
 async function assertGenericDashboard(relPath, expectations) {
@@ -274,6 +303,10 @@ await assertDashboard("Knowledge/Test/movies - Mobile.md", {
   noUntitled: true,
   noNegativePills: true,
   watchedIndicator: true,
+  compactGrid: true,
+  minYears: 5,    // most rows have Year populated
+  minRatings: 1,  // some rows have unicode stars
+  minThemes: 5,   // most rows have Theme populated
 });
 
 // Generic dashboard (dictionary) — expandable scrollable table, no kanban cards.

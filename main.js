@@ -47181,12 +47181,16 @@ if (!csvData || !csvData.length) {
 `;
   }
   generateLibraryMobileDashboard(csvPath) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
     const titleKey = (_e = (_d = (_c = this.titleKey()) != null ? _c : this.resolveCol(["Quote", "quote", "Headline", "headline", "Phrase", "phrase"])) != null ? _d : this.headers[0]) != null ? _e : "Title";
     const categoryCol = (_f = this.getCategoryCol()) != null ? _f : "Category";
     const statusCol = (_g = this.getStatusCol()) != null ? _g : "Status";
     const authorKey = this.authorKey();
+    const yearCol = (_h = this.resolveCol(["Year", "year", "Released", "released"])) != null ? _h : "";
+    const ratingCol = (_i = this.resolveCol(["Rating", "rating", "Score", "score", "Stars", "stars"])) != null ? _i : "";
+    const themeCol = (_j = this.resolveCol(["Theme", "theme", "Subgenre", "subgenre", "Mood", "mood"])) != null ? _j : "";
+    const compactGrid = /^(watched|seen)$/i.test(statusCol);
     return `## Add Entry
 
 \`\`\`csv-add
@@ -47211,6 +47215,10 @@ if (!csvData || !csvData.length) {
   const categoryCol = "${categoryCol}";
   const statusCol = "${statusCol}";
   const authorKey = "${authorKey || ""}";
+  const yearCol = "${yearCol}";
+  const ratingCol = "${ratingCol}";
+  const themeCol = "${themeCol}";
+  const compactGrid = ${compactGrid};
 
   // View state
   const viewKey = "csv-mobile-view-" + dv.current().file.path;
@@ -47230,10 +47238,16 @@ if (!csvData || !csvData.length) {
     .csv-m-section[open] summary .arrow { transform:rotate(90deg); }
     .csv-m-section summary .count { font-weight:400; font-size:11px; opacity:0.5; margin-left:auto; }
     .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:12px 0; }
-    .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); }
-    .csv-m-card-title { font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:8px; }
+    .csv-m-grid.compact { grid-template-columns:1fr 1fr; gap:8px; }
+    .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); display:flex; flex-direction:column; gap:4px; }
+    .csv-m-grid.compact .csv-m-card { padding:10px 12px; }
+    .csv-m-card-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; }
+    .csv-m-grid.compact .csv-m-card-title { font-size:13px; }
     .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#5A8C4A; flex-shrink:0; }
     .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
+    .csv-m-card-year { font-size:11px; color:var(--text-muted); }
+    .csv-m-card-rating { font-size:11px; color:var(--text-muted); letter-spacing:1px; }
+    .csv-m-card-theme { display:inline-block; align-self:flex-start; font-size:10px; padding:2px 6px; border-radius:3px; background:var(--background-modifier-border); color:var(--text-muted); margin-top:2px; }
     .csv-m-card-status { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; margin-top:6px; background:var(--background-modifier-border); color:var(--text-muted); }
     .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(90,140,74,0.2); color:#5A8C4A; }
     .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(74,122,155,0.2); color:#4A7A9B; }
@@ -47291,7 +47305,7 @@ if (!csvData || !csvData.length) {
       const summary = section.createEl("summary");
       summary.innerHTML = '<span class="arrow">\u25B6</span> ' + cat + ' <span class="count">' + items.length + '</span>';
 
-      const grid = section.createEl("div", { cls: "csv-m-grid" });
+      const grid = section.createEl("div", { cls: "csv-m-grid" + (compactGrid ? " compact" : "") });
 
       // Sort: in-progress first, then by title.
       items.sort((a, b) => {
@@ -47317,10 +47331,30 @@ if (!csvData || !csvData.length) {
         }
         titleEl.createEl("span", { text: title });
 
-        if (authorKey && r[authorKey]) {
+        // Year (small muted, just under title)
+        const year = yearCol ? String(r[yearCol] ?? "").trim() : "";
+        if (year) {
+          card.createEl("div", { cls: "csv-m-card-year", text: year });
+        }
+
+        // Author/Director \u2014 only in non-compact mode (movies skip director to save vertical room).
+        if (!compactGrid && authorKey && r[authorKey]) {
           card.createEl("div", { cls: "csv-m-card-meta", text: String(r[authorKey]) });
         }
-        // Render a pill only for non-trivial statuses (e.g. "In progress").
+
+        // Rating (data is already rendered as unicode stars \u2014 render as-is, hide "unrated").
+        const rating = ratingCol ? String(r[ratingCol] ?? "").trim() : "";
+        if (rating && rating.toLowerCase() !== "unrated") {
+          card.createEl("div", { cls: "csv-m-card-rating", text: rating });
+        }
+
+        // Theme \u2014 small inline pill at the bottom. Multi-value (comma-separated) renders just the first.
+        const theme = themeCol ? String(r[themeCol] ?? "").split(",")[0].trim() : "";
+        if (theme) {
+          card.createEl("span", { cls: "csv-m-card-theme", text: theme });
+        }
+
+        // Status pill only for non-trivial states (e.g. "In progress").
         // Affirmative values became the dot above; negative values render nothing.
         if (status && !NEGATIVE_STATUS.has(statusLc) && !affirmative) {
           const statusEl = card.createEl("span", { cls: "csv-m-card-status", text: status });
