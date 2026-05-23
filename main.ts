@@ -1179,7 +1179,12 @@ if (!csvData || !csvData.length) {
 
   private generateLibraryMobileDashboard(csvPath: string): string {
     const fileName = this.file?.name ?? "";
-    const titleKey = this.titleKey() ?? "Title";
+    // titleKey falls back through Quote/Headline/Phrase for files like quotes.xlsx
+    // and dictionary.xlsx that have no Title/Name column. Last resort: first header.
+    const titleKey = this.titleKey()
+      ?? this.resolveCol(["Quote","quote","Headline","headline","Phrase","phrase"])
+      ?? this.headers[0]
+      ?? "Title";
     const categoryCol = this.getCategoryCol() ?? "Category";
     const statusCol = this.getStatusCol() ?? "Status";
     const authorKey = this.authorKey();
@@ -1228,7 +1233,8 @@ if (!csvData || !csvData.length) {
     .csv-m-section summary .count { font-weight:400; font-size:11px; opacity:0.5; margin-left:auto; }
     .csv-m-grid { display:grid; grid-template-columns:1fr; gap:10px; padding:12px 0; }
     .csv-m-card { padding:12px 14px; border-radius:10px; background:var(--background-secondary); }
-    .csv-m-card-title { font-weight:600; font-size:14px; margin-bottom:2px; }
+    .csv-m-card-title { font-weight:600; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:8px; }
+    .csv-m-watched-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#5A8C4A; flex-shrink:0; }
     .csv-m-card-meta { font-size:12px; color:var(--text-muted); }
     .csv-m-card-status { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; margin-top:6px; background:var(--background-modifier-border); color:var(--text-muted); }
     .csv-m-card-status.finished, .csv-m-card-status.read, .csv-m-card-status.watched { background:rgba(90,140,74,0.2); color:#5A8C4A; }
@@ -1259,20 +1265,26 @@ if (!csvData || !csvData.length) {
     data.slice(-30).reverse().forEach(r => {
       const row = tbody.createEl("tr");
       [titleKey, categoryCol, statusCol].filter(Boolean).forEach(col => {
-        const td = row.createEl("td", { text: r[col] || "" });
+        const td = row.createEl("td", { text: String(r[col] ?? "") });
         td.style.cssText = "padding:10px;font-size:13px;";
       });
     });
   } else {
-    // Kanban view - group by category
+    // Kanban view — group by category. String() guards against numeric values that
+    // Dataview's CSV parser coerces (e.g. the book "1984" → Number).
     const groups = {};
     data.forEach(r => {
-      const cats = (r[categoryCol] || "Uncategorized").split(",").map(c => c.trim());
+      const cats = String(r[categoryCol] || "Uncategorized").split(",").map(c => c.trim());
       cats.forEach(cat => {
         if (!groups[cat]) groups[cat] = [];
         groups[cat].push(r);
       });
     });
+
+    // Negative/default states render as nothing — keeps cards quiet by default.
+    const NEGATIVE_STATUS = new Set(["", "no", "not started", "unwatched", "unread", "todo"]);
+    // Affirmative-finished values render as a green dot prefix on the title (matches desktop Library).
+    const WATCHED_AFFIRMATIVE = new Set(["yes", "watched", "seen", "finished", "read"]);
 
     Object.keys(groups).sort().forEach(cat => {
       const items = groups[cat];
@@ -1283,25 +1295,38 @@ if (!csvData || !csvData.length) {
 
       const grid = section.createEl("div", { cls: "csv-m-grid" });
 
-      // Sort: in-progress first, then by title
+      // Sort: in-progress first, then by title.
       items.sort((a, b) => {
-        const statusA = (a[statusCol] || "").toLowerCase();
-        const statusB = (b[statusCol] || "").toLowerCase();
+        const statusA = String(a[statusCol] || "").toLowerCase();
+        const statusB = String(b[statusCol] || "").toLowerCase();
         const inProgressA = statusA.includes("progress") || statusA.includes("reading") || statusA.includes("watching");
         const inProgressB = statusB.includes("progress") || statusB.includes("reading") || statusB.includes("watching");
         if (inProgressA !== inProgressB) return inProgressA ? -1 : 1;
-        return (a[titleKey] || "").localeCompare(b[titleKey] || "");
+        return String(a[titleKey] || "").localeCompare(String(b[titleKey] || ""));
       });
 
       items.forEach(r => {
+        const title = String(r[titleKey] ?? "").trim();
+        if (!title) return; // skip rows with no title — keeps the kanban free of "Untitled" cards
+        const status = String(r[statusCol] || "").trim();
+        const statusLc = status.toLowerCase();
+        const affirmative = WATCHED_AFFIRMATIVE.has(statusLc);
+
         const card = grid.createEl("div", { cls: "csv-m-card" });
-        card.createEl("div", { cls: "csv-m-card-title", text: r[titleKey] || "Untitled" });
-        if (authorKey && r[authorKey]) {
-          card.createEl("div", { cls: "csv-m-card-meta", text: r[authorKey] });
+        const titleEl = card.createEl("div", { cls: "csv-m-card-title" });
+        if (affirmative) {
+          titleEl.createEl("span", { cls: "csv-m-watched-dot", attr: { title: status } });
         }
-        if (r[statusCol]) {
-          const statusEl = card.createEl("span", { cls: "csv-m-card-status", text: r[statusCol] });
-          statusEl.classList.add(r[statusCol].toLowerCase().replace(/\\s+/g, "-"));
+        titleEl.createEl("span", { text: title });
+
+        if (authorKey && r[authorKey]) {
+          card.createEl("div", { cls: "csv-m-card-meta", text: String(r[authorKey]) });
+        }
+        // Render a pill only for non-trivial statuses (e.g. "In progress").
+        // Affirmative values became the dot above; negative values render nothing.
+        if (status && !NEGATIVE_STATUS.has(statusLc) && !affirmative) {
+          const statusEl = card.createEl("span", { cls: "csv-m-card-status", text: status });
+          statusEl.classList.add(statusLc.replace(/\\s+/g, "-"));
         }
       });
     });
@@ -1316,7 +1341,8 @@ if (!csvData || !csvData.length) {
 
   private generateGenericMobileDashboard(csvPath: string): string {
     const fileName = this.file?.name ?? "";
-    const displayCols = this.headers.slice(0, 4);
+    // Show all columns — horizontal scroll keeps things readable on narrow screens.
+    const headers = this.headers;
 
     return `## Add Entry
 
@@ -1330,41 +1356,57 @@ file: ${fileName}
 \`\`\`
 
 \`\`\`dataviewjs
+// Generic mobile dashboard — expandable, scrollable table.
+// Used for files without a category column (e.g. dictionary).
 const csvData = await dv.io.csv("${csvPath}");
 if (!csvData || !csvData.length) {
   dv.paragraph("No data found");
 } else {
   const data = csvData.array();
-
+  const headers = [${headers.map(h => JSON.stringify(h)).join(", ")}];
   const container = dv.container;
-  container.style.cssText = "font-size:14px;";
 
-  // View toggle
   const viewKey = "csv-mobile-view-" + dv.current().file.path;
   let showAll = localStorage.getItem(viewKey) === "all";
 
-  const toggleWrap = container.createEl("div");
-  toggleWrap.style.cssText = "display:flex;gap:8px;margin-bottom:16px;";
+  const style = container.createEl("style");
+  style.textContent = \`
+    .csv-m-toggle { display:flex; gap:8px; margin-bottom:16px; }
+    .csv-m-toggle button { padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; }
+    .csv-m-toggle button.active { background:var(--background-secondary); color:var(--text-normal); }
+    .csv-m-tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--background-modifier-border); border-radius:8px; }
+    .csv-m-tablewrap table { width:100%; border-collapse:collapse; font-size:13px; }
+    .csv-m-tablewrap th { text-align:left; padding:10px 12px; font-weight:500; color:var(--text-muted); font-size:12px; white-space:nowrap; border-bottom:1px solid var(--background-modifier-border); background:var(--background-secondary); position:sticky; top:0; }
+    .csv-m-tablewrap td { padding:10px 12px; vertical-align:top; border-bottom:1px solid var(--background-modifier-border); }
+    .csv-m-tablewrap tr:last-child td { border-bottom:none; }
+    .csv-m-hint { color:var(--text-faint); font-size:12px; margin-top:8px; }
+  \`;
+
+  // Recent / All toggle — expandable by tapping "All"
+  const toggleWrap = container.createEl("div", { cls: "csv-m-toggle" });
   const recentBtn = toggleWrap.createEl("button", { text: "Recent" });
   const allBtn = toggleWrap.createEl("button", { text: "All " + data.length });
+  if (!showAll) recentBtn.classList.add("active");
+  else allBtn.classList.add("active");
+  recentBtn.onclick = () => { localStorage.setItem(viewKey, "recent"); location.reload(); };
+  allBtn.onclick = () => { localStorage.setItem(viewKey, "all"); location.reload(); };
 
-  [recentBtn, allBtn].forEach((btn, i) => {
-    const isActive = (i === 0 && !showAll) || (i === 1 && showAll);
-    btn.style.cssText = "padding:6px 12px;border:none;background:" + (isActive ? "var(--background-secondary)" : "transparent") + ";color:" + (isActive ? "var(--text-normal)" : "var(--text-muted)") + ";font-size:13px;font-weight:500;cursor:pointer;border-radius:6px;";
-    btn.onclick = () => { localStorage.setItem(viewKey, i === 0 ? "recent" : "all"); location.reload(); };
+  const entries = showAll ? [...data].reverse() : data.slice(-15).reverse();
+
+  const tableWrap = container.createEl("div", { cls: "csv-m-tablewrap" });
+  const table = tableWrap.createEl("table");
+  const thead = table.createEl("thead");
+  const headerRow = thead.createEl("tr");
+  headers.forEach(h => headerRow.createEl("th", { text: h }));
+  const tbody = table.createEl("tbody");
+  entries.forEach(r => {
+    const row = tbody.createEl("tr");
+    headers.forEach(h => row.createEl("td", { text: String(r[h] ?? "") }));
   });
 
-  const entries = showAll ? data : data.slice(-15).reverse();
-
-  dv.table(
-    [${displayCols.map(c => `"${c}"`).join(", ")}],
-    entries.map(r => [${displayCols.map(c => `r["${c}"] || ""`).join(", ")}])
-  );
-
-  if (!showAll) {
-    const hint = container.createEl("p");
-    hint.style.cssText = "color:var(--text-faint);font-size:12px;margin-top:8px;";
-    hint.textContent = "Showing last 15 of " + data.length + " entries";
+  if (!showAll && data.length > 15) {
+    const hint = container.createEl("p", { cls: "csv-m-hint" });
+    hint.textContent = "Showing last 15 of " + data.length + " entries — tap All to expand";
   }
 }
 \`\`\`

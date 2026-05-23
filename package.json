@@ -12,6 +12,7 @@
     "test:csv": "node test-csv-parser.mjs",
     "test:mobile": "node test-mobile-dashboards.mjs",
     "test:all": "node test-csv-parser.mjs && node test-plugin-logic.mjs && node test-mobile-dashboards.mjs",
+    "regen:mobile": "node regenerate-mobile-dashboards.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test:all && npm run build:deploy"
   },

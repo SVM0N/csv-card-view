@@ -231,6 +231,28 @@ async function assertDashboard(relPath, expectations) {
   }
 }
 
+async function assertGenericDashboard(relPath, expectations) {
+  console.log(`\n— ${relPath}`);
+  const { error, container, skipped, reason } = await runDashboard(relPath);
+  if (skipped) { console.log(`  · skipped (${reason})`); return; }
+
+  check("script does not throw", !error,
+    error ? `${error.constructor.name}: ${error.message}` : "");
+  if (error) return;
+
+  const wraps = collect(container, e => e.classes.has("csv-m-tablewrap"));
+  check("renders one scrollable table wrap", wraps.length === 1, `got ${wraps.length}`);
+
+  const rows = collect(container, e => e.tag === "tr");
+  // First row is the header; data rows are the rest.
+  const dataRows = rows.length > 0 ? rows.length - 1 : 0;
+  if (expectations.minRows != null) {
+    check(`renders ≥${expectations.minRows} data rows`,
+      dataRows >= expectations.minRows,
+      `got ${dataRows}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -252,6 +274,11 @@ await assertDashboard("Knowledge/Test/movies - Mobile.md", {
   noUntitled: true,
   noNegativePills: true,
   watchedIndicator: true,
+});
+
+// Generic dashboard (dictionary) — expandable scrollable table, no kanban cards.
+await assertGenericDashboard("Knowledge/Test/dictionary - Mobile.md", {
+  minRows: 5,
 });
 
 console.log(`\n${"=".repeat(40)}`);
