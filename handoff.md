@@ -1,5 +1,29 @@
 # XLSX Card View — Claude Code Handoff
 
+## Session pickup
+
+**Last shipped (2026-05-22, commit `9f0743a`)**: data-driven Library cards, status color palette extension, cardFields picker in the Columns modal, kanban accent-color category headers, mobile dictionary column-width fix, Watched/Unwatched normalization. 105 tests green (84 logic + 21 mobile).
+
+**The user is about to move the test xlsx files** from `Knowledge/Test/` into their main library location (somewhere else in the vault — they didn't specify the destination). **This is supposed to be safe** because:
+
+- Mobile dashboard `csv-add` lines use `file: ../<basename>.xlsx` (note-relative). `resolvePath` in `src/utils.ts` walks `..` segments properly. Move the parent folder anywhere → dashboards still resolve.
+- The `_csv_helpers/<file>.csv` mirror lives in the same parent folder as the xlsx, so it travels with the move.
+- The `Mobile/` subfolder also lives in the same parent folder, ditto.
+- `Archive/` (when the 💾 Backup button is used) is created in the same parent folder, ditto.
+
+**What the user might hit after the move**:
+- `data.json` `fileConfigs` keys are full vault paths and **do not follow renames**. After moving, per-file settings (categoryColumn, cardFields, etc.) become orphaned. The "fileConfigs key doesn't follow renames" item in Known Issues / future work is exactly this. Not blocking but worth noting if they report "my column picker settings disappeared."
+- `test-mobile-dashboards.mjs` and `regenerate-mobile-dashboards.mjs` have **hardcoded paths** pointing to `Knowledge/Test/...` — update both if the user wants those tools to keep working against the new location.
+- If they delete the `Knowledge/Test/_csv_helpers/` folder during the move, dashboards will throw "No data found" until they re-save an xlsx via the plugin (which writes the helper CSV).
+
+**Active dev loop**:
+```
+npm run build:deploy && npm run regen:mobile && npm run test:all
+```
+(then Cmd+R in Obsidian to load the new plugin)
+
+---
+
 ## What this is
 
 An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, or dashboard UI. Built for Simon's book library and habit tracking. Three views:
@@ -25,20 +49,37 @@ csv-card-view/
 ├── esbuild.config.mjs   # Build configuration
 ├── tsconfig.json        # TypeScript config
 ├── test-csv-parser.mjs  # CSV parsing tests (6 tests)
-├── test-plugin-logic.mjs # Comprehensive plugin tests (60 tests)
-├── test-mobile-dashboards.mjs # Mobile dashboard simulator — extracts the
-│                        # dataviewjs block from each "<file> - Mobile.md",
-│                        # runs it against a stubbed Dataview runtime backed
-│                        # by the real CSVs (header + dynamicTyping, so e.g.
-│                        # the book "1984" parses as a Number — same coercion
-│                        # that triggered the original localeCompare bug),
-│                        # then asserts no thrown errors, no Untitled cards,
-│                        # no negative status pills, ≥1 watched-dot, and
-│                        # (for generic dashboards) a scrollable table wrap.
-├── regenerate-mobile-dashboards.mjs # Headless regenerator that mirrors the
-│                        # plugin's template logic and stamps fresh dashboards
-│                        # into the vault without needing Obsidian reload +
-│                        # button clicks. Used by `npm run regen:mobile`.
+├── test-plugin-logic.mjs # Comprehensive plugin tests (84 tests) — sanitization,
+│                        # CSV parsing, column resolution, round-trip, edge cases,
+│                        # title case, binary cols, date cols, search, dup detect,
+│                        # merge habit entry, sort order, formatRatingForDisplay
+│                        # (9), resolvePath (9).
+├── test-mobile-dashboards.mjs # Mobile dashboard simulator (21 assertions) —
+│                        # extracts the dataviewjs block from each
+│                        # `Knowledge/Test/Mobile/<basename>.md`, runs it against
+│                        # a stubbed Dataview runtime backed by the real CSVs
+│                        # (header + dynamicTyping, so e.g. the book "1984"
+│                        # parses as a Number — same coercion that triggered the
+│                        # original localeCompare bug). Asserts no thrown errors,
+│                        # no Untitled cards, no negative status pills, ≥1
+│                        # watched-dot, compact grid + year/rating/theme on
+│                        # movies, and (for generic dashboards) a scrollable
+│                        # table wrap. Skips missing files (e.g. mid-iCloud-sync)
+│                        # rather than hard-crashing.
+│                        # ⚠️ Hardcoded vault paths under `Knowledge/Test/...` —
+│                        # update if the data folder moves.
+├── regenerate-mobile-dashboards.mjs # Headless regenerator (`npm run regen:mobile`)
+│                        # that mirrors the plugin's template logic and stamps
+│                        # fresh dashboards into the vault without needing
+│                        # Obsidian reload + button clicks. Use after template
+│                        # changes in main.ts. Same hardcoded-path caveat as the
+│                        # simulator.
+├── normalize-stars.mjs  # One-shot: convert ⭐️ (U+2B50 + VS-16) → ★ (U+2605)
+│                        # across all xlsx Rating cells. Backs up originals.
+│                        # Already run on books.xlsx; safe to re-run (no-op if
+│                        # nothing to change).
+├── normalize-watched.mjs # One-shot: convert movies.xlsx Watched column
+│                        # Yes→Watched, No→Unwatched. Already run.
 ├── csv-card-view/       # Symlink to Obsidian plugin folder
 └── handoff.md           # This file
 ```
@@ -53,11 +94,15 @@ npm run dev              # Watch mode (rebuild on changes)
 
 **Testing:**
 ```bash
-npm run test             # Run plugin logic tests (60 tests)
-npm run test:csv         # Run CSV parser tests (6 tests)
-npm run test:all         # Run all tests (66 total)
+npm run test             # Plugin logic tests (84)
+npm run test:csv         # CSV parser tests (6)
+npm run test:mobile      # Mobile dashboard simulator (21) — runs each
+                         # dataviewjs block against a stubbed runtime + real CSVs
+npm run test:all         # All of the above (111 total)
 npm run typecheck        # TypeScript type checking
 npm run check            # Full check: typecheck + tests + build + deploy
+npm run regen:mobile     # Stamp fresh mobile dashboards into the vault
+                         # (after a template change in main.ts)
 ```
 
 **Install in Obsidian:** copy `main.js`, `manifest.json`, `styles.css` into `<vault>/.obsidian/plugins/csv-card-view/` and enable in Community plugins. Works on iOS/Android.
@@ -603,7 +648,7 @@ Three gotchas live in the library template:
 
 Regressions in any of these are caught by `npm run test:mobile`. The simulator runs each dashboard against a stubbed Dataview runtime, so a column-name typo or a missing `String()` guard fails the test the same way it would fail in Obsidian.
 
-**Test suite (66 tests + 14 mobile assertions):**
+**Test suite (84 logic + 21 mobile + 6 csv = 111 checks):**
 - Filename sanitization (illegal chars, whitespace, truncation, unicode)
 - CSV parsing (CRLF, quotes, escaping, long fields, edge cases)
 - Column resolution (case-insensitive matching, fallback chains)
@@ -616,6 +661,9 @@ Regressions in any of these are caught by `npm run test:mobile`. The simulator r
 - Duplicate entry detection (findExistingRowByDate)
 - Merge habit entry logic (mergeHabitEntry)
 - Sort order (sortByDate newest/oldest first)
+- `formatRatingForDisplay` (9 — empty/unrated/glyph-pass-through/numeric/text-mapped/out-of-range)
+- `resolvePath` (9 — sibling/vault-relative/`../`/`../../`/`./`/mixed/root-clamp)
+- Mobile dashboard simulator (21 — per-file no-throw + render assertions, plus movie-specific compactGrid/year/rating/theme checks and generic-table wrap)
 
 **Manual test checklist:**
 - Open `books.xlsx` → opens in By Genre view
