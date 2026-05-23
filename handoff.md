@@ -26,6 +26,14 @@ csv-card-view/
 ├── tsconfig.json        # TypeScript config
 ├── test-csv-parser.mjs  # CSV parsing tests (6 tests)
 ├── test-plugin-logic.mjs # Comprehensive plugin tests (60 tests)
+├── test-mobile-dashboards.mjs # Mobile dashboard simulator — extracts the
+│                        # dataviewjs block from each "<file> - Mobile.md",
+│                        # runs it against a stubbed Dataview runtime backed
+│                        # by the real CSVs (header + dynamicTyping, so e.g.
+│                        # the book "1984" parses as a Number — same coercion
+│                        # that triggered the original localeCompare bug),
+│                        # then asserts no thrown errors, no Untitled cards,
+│                        # no negative status pills, and ≥1 watched-dot.
 ├── csv-card-view/       # Symlink to Obsidian plugin folder
 └── handoff.md           # This file
 ```
@@ -399,6 +407,24 @@ src/view/
 - [x] **Dataview note moved** — "Requires Dataview" now at bottom as subtle footer
 - [x] **Auto-refresh after add** — note is reopened to force Dataview to re-execute
 - [x] **CSV-XLSX sync** — syncs on both mobile add/update AND desktop edits
+- [x] **localeCompare crash on numeric titles** — book "1984" parsed by `dv.io.csv` as `Number`, broke sort. Fixed: `String(...)` coercion on both sides of `localeCompare`.
+- [x] **quotes mobile rendered "Untitled" on every card** — script used `titleKey = "Title"`, but `quotes.csv` has no Title column. Fixed: `titleKey = "Quote"` (the quote text is the headline).
+- [x] **movies mobile rendered "No" pill on every card** — `Watched=No` was treated as a status worth surfacing. Fixed: `NEGATIVE_STATUS` set filters out `no/not started/unwatched/unread/todo`.
+- [x] **Watched movies use green dot, not "Yes" pill** — affirmative `Watched` values (`yes/watched/seen/finished/read`) render as an 8px `#5A8C4A` dot prefix on the title row, matching the desktop Library design. Unwatched movies render nothing — clean.
+- [x] **Empty-title rows skipped** — books with no `Name` and movies with no `Title` no longer render as "Untitled" placeholders. Three book rows and one movie row were affected.
+- [x] **Mobile dashboard simulator** (`test-mobile-dashboards.mjs`, wired into `npm run test:mobile` and `test:all`) — extracts each dashboard's `dataviewjs` block, runs it against a stubbed Dataview runtime (real CSVs, Papa Parse with `dynamicTyping: true` to mirror the production type coercion), and asserts no thrown errors, no Untitled cards, no negative status pills, ≥1 watched-dot. Catches column-name typos and type-coercion regressions empirically rather than by inspection. Skips files that aren't present (e.g. mid-iCloud-sync) rather than hard-crashing.
+- [x] **Unified library template** — `books`, `movies`, `quotes` mobile dashboards share one script body that varies only at the top:
+
+  ```js
+  const titleKey    = "Name";  // "Title" for movies, "Quote" for quotes
+  const categoryCol = "Category";  // "Genre" for movies
+  const statusCol   = "Status";  // "Watched" for movies
+  const authorKey   = "Author";  // "Director" for movies
+  const csvPath     = "Knowledge/Test/_csv_helpers/books.csv";
+  const watchedDot  = false;   // true for movies only
+  ```
+
+  All three were re-created from this template after an iCloud sync conflict wiped the originals. If a similar conflict recurs, the simulator will catch the regression on next push and the template can be re-stamped.
 
 ### CSV Helper Architecture
 
@@ -550,7 +576,15 @@ npm run deploy           # Copy built files to Obsidian plugin folder
 
 The `csv-card-view/` symlink points to the Obsidian plugin folder, so `npm run deploy` (or `npm run build:deploy`) updates the plugin in place. Reload Obsidian (Cmd+R) to pick up changes.
 
-**Test suite (66 tests):**
+**Mobile dashboards** (`Knowledge/Test/<file> - Mobile.md` in the iCloud vault) are standalone `dataviewjs` blocks rendered by the Dataview plugin. They are NOT part of the plugin source. They read the `_csv_helpers/<file>.csv` mirror that the plugin writes on `csv-refresh`. Three gotchas live here:
+
+- **CSV type coercion.** `dv.io.csv` parses with `dynamicTyping: true`, so a numeric-looking value like the book title `1984` comes back as `Number`. Any string-only call (`.localeCompare`, `.toLowerCase`, `.split`) on raw field values must be wrapped in `String(...)`.
+- **Column names differ per file.** `books.csv` uses `Name`, `movies.csv` uses `Title`, `quotes.csv` has no title column — the quote text itself is the headline (`titleKey = "Quote"`).
+- **Negative status values clutter the kanban.** `NEGATIVE_STATUS` filters out `"no" / "not started" / "unwatched" / "unread" / "todo"` so unfinished items render quietly. For movies, affirmative `Watched` values (`yes`, `watched`, `seen`) render as a green dot prefix on the title row instead of a "Yes" chip.
+
+Regressions in any of these are caught by `npm run test:mobile`.
+
+**Test suite (66 tests + 14 mobile assertions):**
 - Filename sanitization (illegal chars, whitespace, truncation, unicode)
 - CSV parsing (CRLF, quotes, escaping, long fields, edge cases)
 - Column resolution (case-insensitive matching, fallback chains)
