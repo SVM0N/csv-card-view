@@ -344,9 +344,10 @@ for (const t of TARGETS) {
   const raw = fs.readFileSync(absCsv, "utf8");
   const parsed = Papa.parse(raw, { header: true, skipEmptyLines: true });
   const headers = parsed.meta.fields;
-  // Vault-relative path so csv-add (which resolves relative to the dashboard's
-  // folder, Mobile/) finds the xlsx in the parent folder.
-  const filePath = `${TEST_DIR}/${t.fileName}`;
+  // "../" so csv-add (which resolves relative to the dashboard's folder,
+  // Mobile/) finds the xlsx in the parent folder. Stays valid if the user
+  // later moves the parent folder anywhere in the vault.
+  const filePath = `../${t.fileName}`;
 
   let content;
   const cCol = categoryCol(headers);

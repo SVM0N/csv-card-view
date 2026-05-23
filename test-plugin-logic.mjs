@@ -44,6 +44,22 @@ function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
 }
 
+// Copy of resolvePath from src/utils.ts — used by the csv-add code block to
+// turn `file: ../books.xlsx` into a real vault path.
+function resolvePath(input, baseFolder) {
+  if (!input) return input;
+  const isRelative = input.startsWith("./") || input.startsWith("../") || input === "." || input === "..";
+  if (!isRelative && input.includes("/")) return input;
+  if (!isRelative) return baseFolder ? `${baseFolder}/${input}` : input;
+  const stack = baseFolder ? baseFolder.split("/").filter(Boolean) : [];
+  for (const seg of input.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") { stack.pop(); continue; }
+    stack.push(seg);
+  }
+  return stack.join("/");
+}
+
 function parseCSV(raw) {
   const lines = raw.split(/\r?\n/).filter(l => l.trim());
   if (!lines.length) return { headers: [], rows: [] };
@@ -686,6 +702,48 @@ test("sortByDate: oldest first", () => {
   assertEqual(sorted[0].date, "2025-05-20");
   assertEqual(sorted[1].date, "2025-05-21");
   assertEqual(sorted[2].date, "2025-05-22");
+});
+
+// ============================================================================
+// Path resolution (csv-add file:)
+// ============================================================================
+
+console.log("\n=== resolvePath ===\n");
+
+test("resolvePath: sibling file (no slash)", () => {
+  assertEqual(resolvePath("books.xlsx", "Knowledge/Test"), "Knowledge/Test/books.xlsx");
+});
+
+test("resolvePath: sibling file with empty baseFolder (vault root note)", () => {
+  assertEqual(resolvePath("books.xlsx", ""), "books.xlsx");
+});
+
+test("resolvePath: vault-relative (slash, no leading dot)", () => {
+  assertEqual(resolvePath("Knowledge/Test/books.xlsx", "anywhere/else"), "Knowledge/Test/books.xlsx");
+});
+
+test("resolvePath: ../ walks up one folder", () => {
+  assertEqual(resolvePath("../books.xlsx", "Knowledge/Test/Mobile"), "Knowledge/Test/books.xlsx");
+});
+
+test("resolvePath: ../../ walks up two folders", () => {
+  assertEqual(resolvePath("../../shared.xlsx", "a/b/c/d"), "a/b/shared.xlsx");
+});
+
+test("resolvePath: ./ resolves to sibling", () => {
+  assertEqual(resolvePath("./books.xlsx", "Knowledge/Test"), "Knowledge/Test/books.xlsx");
+});
+
+test("resolvePath: mixed segments (../sub/file.xlsx)", () => {
+  assertEqual(resolvePath("../Other/file.xlsx", "Knowledge/Test/Mobile"), "Knowledge/Test/Other/file.xlsx");
+});
+
+test("resolvePath: walking past vault root clamps at root", () => {
+  assertEqual(resolvePath("../../../books.xlsx", "Knowledge"), "books.xlsx");
+});
+
+test("resolvePath: empty input passes through", () => {
+  assertEqual(resolvePath("", "Knowledge/Test"), "");
 });
 
 // ============================================================================

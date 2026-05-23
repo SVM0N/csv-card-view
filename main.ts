@@ -19,7 +19,7 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, Category
 
 // Import from src modules
 import { CSVRow, ViewMode, FileConfig, CardViewSettings, DEFAULT_SETTINGS, CARD_VIEW_TYPE } from "./src/types";
-import { sanitizeFilename, titleCase, formatRating, showSelectPicker } from "./src/utils";
+import { sanitizeFilename, titleCase, formatRating, showSelectPicker, resolvePath } from "./src/utils";
 import { AddEntryModal, NoteExpanderModal, FileConfigModal } from "./src/modals";
 
 // Register Chart.js components
@@ -1099,7 +1099,8 @@ export class XLSXCardView extends FileView {
 
   private generateHabitMobileDashboard(habitCols: string[], dateCol: string, csvPath: string): string {
     // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
-    const filePath = this.file?.path ?? "";
+    // "../" so the path stays valid even if the parent folder is moved or renamed.
+    const filePath = this.file ? "../" + this.file.name : "";
     const labels = habitCols.map(h => titleCase(h));
 
     return `---
@@ -1213,7 +1214,8 @@ if (!csvData || !csvData.length) {
 
   private generateLibraryMobileDashboard(csvPath: string): string {
     // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
-    const filePath = this.file?.path ?? "";
+    // "../" so the path stays valid even if the parent folder is moved or renamed.
+    const filePath = this.file ? "../" + this.file.name : "";
     // titleKey falls back through Quote/Headline/Phrase for files like quotes.xlsx
     // and dictionary.xlsx that have no Title/Name column. Last resort: first header.
     const titleKey = this.titleKey()
@@ -1417,7 +1419,8 @@ if (!csvData || !csvData.length) {
 
   private generateGenericMobileDashboard(csvPath: string): string {
     // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
-    const filePath = this.file?.path ?? "";
+    // "../" so the path stays valid even if the parent folder is moved or renamed.
+    const filePath = this.file ? "../" + this.file.name : "";
     // Show all columns — horizontal scroll keeps things readable on narrow screens.
     const headers = this.headers;
 
@@ -2066,10 +2069,15 @@ export default class CardViewPlugin extends Plugin {
       return;
     }
 
-    // Resolve path relative to current note
+    // Resolve path relative to current note. Three forms accepted:
+    //   "books.xlsx"                          → sibling of current note
+    //   "../books.xlsx" or "../../foo.xlsx"   → walked up from current folder
+    //   "Knowledge/Test/books.xlsx"           → vault-relative (any path containing
+    //                                            "/" without a leading ".." is treated
+    //                                            as vault-relative for back-compat)
     const currentFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     const baseFolder = currentFile?.parent?.path ?? "";
-    const fullPath = filePath.includes("/") ? filePath : (baseFolder ? `${baseFolder}/${filePath}` : filePath);
+    const fullPath = resolvePath(filePath, baseFolder);
 
     const file = this.app.vault.getAbstractFileByPath(fullPath);
     if (!file || !(file instanceof TFile)) {

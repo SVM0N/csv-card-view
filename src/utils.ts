@@ -4,6 +4,39 @@ export function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|#^[\]]/g,"").replace(/\s+/g," ").trim().slice(0,100);
 }
 
+/**
+ * Resolve a path the user typed in a `csv-add file:` block against the folder
+ * of the note that contains the block. Three forms accepted:
+ *
+ *   "books.xlsx"                      → sibling of current note
+ *   "./books.xlsx"                    → same as sibling
+ *   "../books.xlsx" / "../../foo.csv" → walked up from current folder
+ *   "Knowledge/Test/books.xlsx"       → vault-relative (any other path with "/"
+ *                                        and no leading "./" or "../" is treated
+ *                                        as vault-relative for back-compat with
+ *                                        existing dashboards)
+ *
+ * Returns the resolved vault-relative path. Walking past the vault root clamps
+ * at the root rather than throwing — Obsidian's lookup will fail with a clear
+ * "File not found" message in that case.
+ */
+export function resolvePath(input: string, baseFolder: string): string {
+  if (!input) return input;
+  const isRelative = input.startsWith("./") || input.startsWith("../") || input === "." || input === "..";
+  // Vault-relative form: any path with "/" that isn't dot-relative.
+  if (!isRelative && input.includes("/")) return input;
+  // Sibling form: no "/" at all, no leading "./" or "../" → just join with baseFolder.
+  if (!isRelative) return baseFolder ? `${baseFolder}/${input}` : input;
+  // Dot-relative: walk the segments.
+  const stack = baseFolder ? baseFolder.split("/").filter(Boolean) : [];
+  for (const seg of input.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") { stack.pop(); continue; }
+    stack.push(seg);
+  }
+  return stack.join("/");
+}
+
 export function titleCase(str: string): string {
   return str.split(/[\s_-]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 }

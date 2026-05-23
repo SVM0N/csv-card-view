@@ -45674,6 +45674,26 @@ var CARD_VIEW_TYPE = "xlsx-card-view";
 function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
 }
+function resolvePath(input, baseFolder) {
+  if (!input)
+    return input;
+  const isRelative = input.startsWith("./") || input.startsWith("../") || input === "." || input === "..";
+  if (!isRelative && input.includes("/"))
+    return input;
+  if (!isRelative)
+    return baseFolder ? `${baseFolder}/${input}` : input;
+  const stack = baseFolder ? baseFolder.split("/").filter(Boolean) : [];
+  for (const seg of input.split("/")) {
+    if (seg === "" || seg === ".")
+      continue;
+    if (seg === "..") {
+      stack.pop();
+      continue;
+    }
+    stack.push(seg);
+  }
+  return stack.join("/");
+}
 function titleCase(str) {
   return str.split(/[\s_-]+/).map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 }
@@ -47099,8 +47119,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     }
   }
   generateHabitMobileDashboard(habitCols, dateCol, csvPath) {
-    var _a, _b;
-    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
+    const filePath = this.file ? "../" + this.file.name : "";
     const labels = habitCols.map((h) => titleCase(h));
     return `---
 obsidianUIMode: preview
@@ -47211,15 +47230,15 @@ if (!csvData || !csvData.length) {
 `;
   }
   generateLibraryMobileDashboard(csvPath) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
-    const titleKey = (_e = (_d = (_c = this.titleKey()) != null ? _c : this.resolveCol(["Quote", "quote", "Headline", "headline", "Phrase", "phrase"])) != null ? _d : this.headers[0]) != null ? _e : "Title";
-    const categoryCol = (_f = this.getCategoryCol()) != null ? _f : "Category";
-    const statusCol = (_g = this.getStatusCol()) != null ? _g : "Status";
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const filePath = this.file ? "../" + this.file.name : "";
+    const titleKey = (_c = (_b = (_a = this.titleKey()) != null ? _a : this.resolveCol(["Quote", "quote", "Headline", "headline", "Phrase", "phrase"])) != null ? _b : this.headers[0]) != null ? _c : "Title";
+    const categoryCol = (_d = this.getCategoryCol()) != null ? _d : "Category";
+    const statusCol = (_e = this.getStatusCol()) != null ? _e : "Status";
     const authorKey = this.authorKey();
-    const yearCol = (_h = this.resolveCol(["Year", "year", "Released", "released"])) != null ? _h : "";
-    const ratingCol = (_i = this.resolveCol(["Rating", "rating", "Score", "score", "Stars", "stars"])) != null ? _i : "";
-    const themeCol = (_j = this.resolveCol(["Theme", "theme", "Subgenre", "subgenre", "Mood", "mood"])) != null ? _j : "";
+    const yearCol = (_f = this.resolveCol(["Year", "year", "Released", "released"])) != null ? _f : "";
+    const ratingCol = (_g = this.resolveCol(["Rating", "rating", "Score", "score", "Stars", "stars"])) != null ? _g : "";
+    const themeCol = (_h = this.resolveCol(["Theme", "theme", "Subgenre", "subgenre", "Mood", "mood"])) != null ? _h : "";
     const compactGrid = /^(watched|seen)$/i.test(statusCol);
     return `---
 obsidianUIMode: preview
@@ -47405,8 +47424,7 @@ if (!csvData || !csvData.length) {
 `;
   }
   generateGenericMobileDashboard(csvPath) {
-    var _a, _b;
-    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
+    const filePath = this.file ? "../" + this.file.name : "";
     const headers = this.headers;
     return `---
 obsidianUIMode: preview
@@ -48069,7 +48087,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
     }
     const currentFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     const baseFolder = (_b = (_a = currentFile == null ? void 0 : currentFile.parent) == null ? void 0 : _a.path) != null ? _b : "";
-    const fullPath = filePath.includes("/") ? filePath : baseFolder ? `${baseFolder}/${filePath}` : filePath;
+    const fullPath = resolvePath(filePath, baseFolder);
     const file = this.app.vault.getAbstractFileByPath(fullPath);
     if (!file || !(file instanceof import_obsidian2.TFile)) {
       el.createEl("p", { text: `Error: File not found: ${fullPath}`, cls: "csv-add-error" });
