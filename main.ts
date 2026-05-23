@@ -429,7 +429,31 @@ export class XLSXCardView extends FileView {
     const mobileBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "📱 Mobile", title: "Generate mobile dashboard with add form" });
     mobileBtn.addEventListener("click", () => this.generateMobileFiles());
 
+    // Backup button — copies the current xlsx to Archive/<basename>_<date>.xlsx
+    const backupBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "💾 Backup", title: "Copy this file to Archive/ with today's date" });
+    backupBtn.addEventListener("click", () => this.backupToArchive());
+
     ctrl.createEl("button",{cls:"csv-add-btn",text:"+ Add"}).addEventListener("click",()=>this.openAddModal());
+  }
+
+  // ── Archive backup ──────────────────────────────────────────────────────────
+
+  private async backupToArchive(): Promise<void> {
+    if (!this.file) return;
+    const folder = this.file.parent?.path ?? "";
+    const archiveFolder = folder ? `${folder}/Archive` : "Archive";
+    if (!await this.app.vault.adapter.exists(archiveFolder)) {
+      await this.app.vault.adapter.mkdir(archiveFolder);
+    }
+    const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const dest = `${archiveFolder}/${this.file.basename}_${date}.${this.file.extension}`;
+    if (await this.app.vault.adapter.exists(dest)) {
+      new Notice(`Backup already exists for today: ${dest}`);
+      return;
+    }
+    const buf = await this.app.vault.readBinary(this.file);
+    await this.app.vault.adapter.writeBinary(dest, buf);
+    new Notice(`Backed up to ${dest}`);
   }
 
   // ── Date detection ──────────────────────────────────────────────────────────
@@ -1015,7 +1039,12 @@ export class XLSXCardView extends FileView {
     if (!this.file) return;
 
     const csvFolder = this.file.parent?.path ?? "";
-    const dashboardPath = csvFolder ? `${csvFolder}/${this.file.basename} - Mobile.md` : `${this.file.basename} - Mobile.md`;
+    // Dashboards live in a Mobile/ subfolder to keep the main folder uncluttered.
+    const mobileFolder = csvFolder ? `${csvFolder}/Mobile` : "Mobile";
+    if (!await this.app.vault.adapter.exists(mobileFolder)) {
+      await this.app.vault.adapter.mkdir(mobileFolder);
+    }
+    const dashboardPath = `${mobileFolder}/${this.file.basename}.md`;
 
     // For XLSX files, export a CSV copy to helper folder for Dataview
     let csvPath = this.file.path;
@@ -1069,13 +1098,18 @@ export class XLSXCardView extends FileView {
   }
 
   private generateHabitMobileDashboard(habitCols: string[], dateCol: string, csvPath: string): string {
-    const fileName = this.file?.name ?? "";
+    // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
+    const filePath = this.file?.path ?? "";
     const labels = habitCols.map(h => titleCase(h));
 
-    return `## Quick Add
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Quick Add
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Entries
@@ -1178,7 +1212,8 @@ if (!csvData || !csvData.length) {
   }
 
   private generateLibraryMobileDashboard(csvPath: string): string {
-    const fileName = this.file?.name ?? "";
+    // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
+    const filePath = this.file?.path ?? "";
     // titleKey falls back through Quote/Headline/Phrase for files like quotes.xlsx
     // and dictionary.xlsx that have no Title/Name column. Last resort: first header.
     const titleKey = this.titleKey()
@@ -1196,10 +1231,14 @@ if (!csvData || !csvData.length) {
     // grid so two cards fit per row. Books/quotes (longer titles) stay 1-col.
     const compactGrid = /^(watched|seen)$/i.test(statusCol);
 
-    return `## Add Entry
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Library
@@ -1377,14 +1416,19 @@ if (!csvData || !csvData.length) {
   }
 
   private generateGenericMobileDashboard(csvPath: string): string {
-    const fileName = this.file?.name ?? "";
+    // Vault-relative path so csv-add resolves the xlsx from inside Mobile/.
+    const filePath = this.file?.path ?? "";
     // Show all columns — horizontal scroll keeps things readable on narrow screens.
     const headers = this.headers;
 
-    return `## Add Entry
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Entries

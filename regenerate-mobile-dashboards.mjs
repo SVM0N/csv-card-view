@@ -97,11 +97,17 @@ const LIBRARY_STYLES = `
     .csv-m-card-status.in-progress, .csv-m-card-status.reading, .csv-m-card-status.watching { background:rgba(74,122,155,0.2); color:#4A7A9B; }
   `;
 
-function libraryTemplate({ fileName, csvPath, tKey, cCol, sCol, aKey, yCol, rCol, thCol, compact }) {
-  return `## Add Entry
+const FRONTMATTER = `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+`;
+
+function libraryTemplate({ filePath, csvPath, tKey, cCol, sCol, aKey, yCol, rCol, thCol, compact }) {
+  return `${FRONTMATTER}## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Library
@@ -240,11 +246,11 @@ if (!csvData || !csvData.length) {
 `;
 }
 
-function genericTemplate({ fileName, csvPath, headers }) {
-  return `## Add Entry
+function genericTemplate({ filePath, csvPath, headers }) {
+  return `${FRONTMATTER}## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Entries
@@ -323,6 +329,10 @@ const TARGETS = [
   // Skip it here — the user can regenerate via the Obsidian button if needed.
 ];
 
+const MOBILE_DIR_REL = `${TEST_DIR}/Mobile`;
+const mobileAbs = path.join(VAULT, MOBILE_DIR_REL);
+if (!fs.existsSync(mobileAbs)) fs.mkdirSync(mobileAbs, { recursive: true });
+
 let written = 0;
 for (const t of TARGETS) {
   const csvPath = `${HELPERS_REL}/${t.xlsxBase}.csv`;
@@ -334,6 +344,9 @@ for (const t of TARGETS) {
   const raw = fs.readFileSync(absCsv, "utf8");
   const parsed = Papa.parse(raw, { header: true, skipEmptyLines: true });
   const headers = parsed.meta.fields;
+  // Vault-relative path so csv-add (which resolves relative to the dashboard's
+  // folder, Mobile/) finds the xlsx in the parent folder.
+  const filePath = `${TEST_DIR}/${t.fileName}`;
 
   let content;
   const cCol = categoryCol(headers);
@@ -344,7 +357,7 @@ for (const t of TARGETS) {
   } else if (cCol) {
     const sCol = statusCol(headers) ?? "Status";
     content = libraryTemplate({
-      fileName: t.fileName,
+      filePath,
       csvPath,
       tKey: titleKey(headers),
       cCol,
@@ -356,13 +369,13 @@ for (const t of TARGETS) {
       compact: /^(watched|seen)$/i.test(sCol),
     });
   } else {
-    content = genericTemplate({ fileName: t.fileName, csvPath, headers });
+    content = genericTemplate({ filePath, csvPath, headers });
   }
 
-  const outPath = path.join(VAULT, TEST_DIR, `${t.xlsxBase} - Mobile.md`);
+  const outPath = path.join(mobileAbs, `${t.xlsxBase}.md`);
   fs.writeFileSync(outPath, content);
   const kind = cCol ? "library" : "generic";
-  console.log(`✓ wrote ${t.xlsxBase} - Mobile.md  (${kind}, titleKey="${titleKey(headers)}")`);
+  console.log(`✓ wrote Mobile/${t.xlsxBase}.md  (${kind}, titleKey="${titleKey(headers)}")`);
   written++;
 }
 

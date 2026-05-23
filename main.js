@@ -46542,7 +46542,29 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     });
     const mobileBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "\u{1F4F1} Mobile", title: "Generate mobile dashboard with add form" });
     mobileBtn.addEventListener("click", () => this.generateMobileFiles());
+    const backupBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "\u{1F4BE} Backup", title: "Copy this file to Archive/ with today's date" });
+    backupBtn.addEventListener("click", () => this.backupToArchive());
     ctrl.createEl("button", { cls: "csv-add-btn", text: "+ Add" }).addEventListener("click", () => this.openAddModal());
+  }
+  // ── Archive backup ──────────────────────────────────────────────────────────
+  async backupToArchive() {
+    var _a, _b;
+    if (!this.file)
+      return;
+    const folder = (_b = (_a = this.file.parent) == null ? void 0 : _a.path) != null ? _b : "";
+    const archiveFolder = folder ? `${folder}/Archive` : "Archive";
+    if (!await this.app.vault.adapter.exists(archiveFolder)) {
+      await this.app.vault.adapter.mkdir(archiveFolder);
+    }
+    const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const dest = `${archiveFolder}/${this.file.basename}_${date}.${this.file.extension}`;
+    if (await this.app.vault.adapter.exists(dest)) {
+      new import_obsidian2.Notice(`Backup already exists for today: ${dest}`);
+      return;
+    }
+    const buf = await this.app.vault.readBinary(this.file);
+    await this.app.vault.adapter.writeBinary(dest, buf);
+    new import_obsidian2.Notice(`Backed up to ${dest}`);
   }
   // ── Date detection ──────────────────────────────────────────────────────────
   hasDateColumn() {
@@ -47033,7 +47055,11 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     if (!this.file)
       return;
     const csvFolder = (_b = (_a = this.file.parent) == null ? void 0 : _a.path) != null ? _b : "";
-    const dashboardPath = csvFolder ? `${csvFolder}/${this.file.basename} - Mobile.md` : `${this.file.basename} - Mobile.md`;
+    const mobileFolder = csvFolder ? `${csvFolder}/Mobile` : "Mobile";
+    if (!await this.app.vault.adapter.exists(mobileFolder)) {
+      await this.app.vault.adapter.mkdir(mobileFolder);
+    }
+    const dashboardPath = `${mobileFolder}/${this.file.basename}.md`;
     let csvPath = this.file.path;
     if (this.isXlsx) {
       const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
@@ -47074,12 +47100,16 @@ var XLSXCardView = class extends import_obsidian2.FileView {
   }
   generateHabitMobileDashboard(habitCols, dateCol, csvPath) {
     var _a, _b;
-    const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
+    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
     const labels = habitCols.map((h) => titleCase(h));
-    return `## Quick Add
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Quick Add
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Entries
@@ -47182,7 +47212,7 @@ if (!csvData || !csvData.length) {
   }
   generateLibraryMobileDashboard(csvPath) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-    const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
+    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
     const titleKey = (_e = (_d = (_c = this.titleKey()) != null ? _c : this.resolveCol(["Quote", "quote", "Headline", "headline", "Phrase", "phrase"])) != null ? _d : this.headers[0]) != null ? _e : "Title";
     const categoryCol = (_f = this.getCategoryCol()) != null ? _f : "Category";
     const statusCol = (_g = this.getStatusCol()) != null ? _g : "Status";
@@ -47191,10 +47221,14 @@ if (!csvData || !csvData.length) {
     const ratingCol = (_i = this.resolveCol(["Rating", "rating", "Score", "score", "Stars", "stars"])) != null ? _i : "";
     const themeCol = (_j = this.resolveCol(["Theme", "theme", "Subgenre", "subgenre", "Mood", "mood"])) != null ? _j : "";
     const compactGrid = /^(watched|seen)$/i.test(statusCol);
-    return `## Add Entry
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Library
@@ -47372,12 +47406,16 @@ if (!csvData || !csvData.length) {
   }
   generateGenericMobileDashboard(csvPath) {
     var _a, _b;
-    const fileName = (_b = (_a = this.file) == null ? void 0 : _a.name) != null ? _b : "";
+    const filePath = (_b = (_a = this.file) == null ? void 0 : _a.path) != null ? _b : "";
     const headers = this.headers;
-    return `## Add Entry
+    return `---
+obsidianUIMode: preview
+obsidianEditingMode: source
+---
+## Add Entry
 
 \`\`\`csv-add
-file: ${fileName}
+file: ${filePath}
 \`\`\`
 
 ## Entries
