@@ -220,9 +220,20 @@ export function showSelectPicker(
   reposition();
   search.addEventListener("input", () => { cursor = 0; renderList(search.value); reposition(); });
 
-  setTimeout(() => document.addEventListener("mousedown", onOutside), 0);
-  window.addEventListener("scroll", onScroll, true);
-  window.addEventListener("resize", dismiss);
+  // Touch devices behave very differently here: focusing the picker's
+  // search input pops the virtual keyboard, which fires a `resize` and
+  // sometimes a `scroll` as the viewport reflows. If we dismiss on those,
+  // the picker auto-closes a beat after it opens — the user sees a flicker
+  // and nothing happens. On desktop the scroll/resize dismissal genuinely
+  // fixes the picker-floating-detached-from-anchor case, so keep it there.
+  const isTouch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+  setTimeout(() => {
+    document.addEventListener("mousedown", onOutside);
+    if (!isTouch) {
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", dismiss);
+    }
+  }, 0);
 
   search.addEventListener("keydown", e => {
     if (e.key === "Escape") { dismiss(); return; }

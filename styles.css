@@ -49,6 +49,8 @@
   background: var(--csv-surface);
   flex-shrink: 0;
   gap: 12px;
+  flex-wrap: wrap; /* Lets controls drop to a second row on narrow viewports instead of getting clipped off the right edge. */
+  row-gap: 8px;
 }
 
 .csv-toolbar-title {
@@ -65,7 +67,20 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
+  flex-wrap: wrap; /* allow controls to wrap onto a second line on narrow viewports */
+  row-gap: 8px;
+}
+
+/* Mobile: hide the filename title (already in the tab) and let the search
+   bar shrink so the action buttons don't get pushed off-screen. */
+@media (max-width: 600px) {
+  .csv-toolbar-title { display: none; }
+  .csv-toolbar { padding: 8px 12px; }
+  .csv-search-input { width: 100%; min-width: 120px; }
+  .csv-search-wrap { flex: 1; min-width: 140px; }
+  /* Toolbar buttons go icon-tight on mobile */
+  .csv-cfg-btn, .csv-add-btn { padding: 6px 10px; font-size: 12px; }
+  .csv-row-count { display: none; }
 }
 
 .csv-row-count {
@@ -495,6 +510,25 @@
   min-height: 0;
   overflow-x: auto;
   padding-bottom: 4px;
+  /* Snap each column to viewport on touch — stops the awkward "1.5 columns
+     half-visible" state on phones. Desktop ignores when there's no horizontal
+     overflow. */
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 16px;
+}
+.csv-kanban-col {
+  scroll-snap-align: start;
+}
+
+/* Mobile: one column at a time, snap-scroll between them.
+   The desktop 260-300px range looks cramped on a 390px phone — a near-full
+   width column reads cleanly, swipe to the next. */
+@media (max-width: 600px) {
+  .csv-kanban-board { gap: 12px; }
+  .csv-kanban-col {
+    min-width: calc(100vw - 60px);
+    max-width: calc(100vw - 60px);
+  }
 }
 
 .csv-kanban-col {
