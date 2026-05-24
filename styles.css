@@ -662,16 +662,47 @@
   color: var(--csv-text);
   vertical-align: top;
   cursor: text;
-  max-width: 280px;
-  word-break: break-word;
+  /* Reasonable readable column width; the wrapper x-scrolls if the table
+     can't fit. This stops the browser from squeezing every column to ~50px
+     when there are many headers. */
+  min-width: 160px;
+  max-width: 320px;
+  /* overflow-wrap (not word-break) keeps words intact and only breaks
+     unbreakable strings like URLs. `word-break: break-word` was causing
+     long titles to split character-by-character into vertical strips. */
+  overflow-wrap: break-word;
+  word-break: normal;
+  /* Clamp very long content to a few lines — full text is one click away
+     via the expander. Without this a single 200-char title makes the row
+     30 lines tall and pushes every other row off-screen. */
+  max-height: 7.5em;
+  overflow: hidden;
+  position: relative;
 }
+
+/* Long-content fade-out hint: a soft gradient on the bottom of clamped
+   cells so the user sees there's more. Click opens the expander
+   (every row supports right-click → Open entry). */
+.csv-table td::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 14px;
+  background: linear-gradient(to bottom, transparent, var(--csv-surface));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.csv-table tr:hover td { background: var(--background-modifier-hover); }
+.csv-table tr:hover td::after { background: linear-gradient(to bottom, transparent, var(--background-modifier-hover)); }
+/* Show the fade only when the content actually overflows. CSS alone can't
+   conditionally apply, so we leave the gradient transparent by default and
+   reveal it via a `.csv-cell--clipped` class added from JS when measured
+   scrollHeight > clientHeight. */
+.csv-table td.csv-cell--clipped::after { opacity: 1; }
 
 .csv-table tr:last-child td {
   border-bottom: none;
-}
-
-.csv-table tr:hover td {
-  background: var(--background-modifier-hover);
 }
 
 /* Higher specificity than `.csv-table td` so we can drop the !important
@@ -680,11 +711,16 @@
   color: var(--csv-text-muted);
   font-style: italic;
   font-size: 12px;
-  max-width: 220px;
+  min-width: 200px;
+  max-width: 320px;
+  /* Notes preview is intentionally single-line — full text is in the
+     expander. The cell's own max-height inherits from .csv-table td. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-height: 2.4em; /* tighter than the default td clamp — notes never need wrapping */
 }
+.csv-table td.csv-table-notes-cell::after { display: none; } /* no fade — single line already ellipsises */
 
 .csv-table-action {
   width: 40px;

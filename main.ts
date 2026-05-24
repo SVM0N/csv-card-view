@@ -2123,9 +2123,26 @@ if (!csvData || !csvData.length) {
         } else if (this.isSelectCol(h)) {
           this.renderSelectField(td, row, h);
         } else {
-          td.setText(row[h]??"");
+          const val = row[h] ?? "";
+          td.setText(val);
+          // Long values get a hover-tooltip with the full text and a
+          // post-paint check for the line-clamp fade. The clamp itself
+          // lives in CSS (.csv-table td max-height) — this just flags
+          // cells whose content actually overflows so the fade gradient
+          // only appears when there's truly more to see.
+          if (val.length > 80) td.title = val;
           this.makeEditable(td, row, h);
         }
+      });
+      // After the row paints, detect overflowing cells. requestAnimationFrame
+      // batches all reads (no layout thrash) before any subsequent writes.
+      requestAnimationFrame(() => {
+        tr.querySelectorAll<HTMLElement>("td").forEach(cell => {
+          if (cell.classList.contains("csv-table-notes-cell")) return;
+          if (cell.scrollHeight > cell.clientHeight + 1) {
+            cell.addClass("csv-cell--clipped");
+          }
+        });
       });
       const at = tr.createEl("td",{cls:"csv-table-action"});
       const hasFile = this.notesFileExists(row);
