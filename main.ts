@@ -13,17 +13,39 @@ import {
   TFile,
   normalizePath,
 } from "obsidian";
-import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip } from "chart.js";
+// Type-only imports — erased at compile time, no runtime cost. The actual
+// modules are loaded on demand via `loadXLSX` / `loadChart` below so the
+// plugin enables without paying SheetJS's lookup-table init (~hundreds of
+// KB of bytecode + execution) or Chart.js's component registration.
+import type * as XLSXType from "xlsx";
+import type { Chart as ChartType } from "chart.js";
 
 // Import from src modules
 import { CSVRow, ViewMode, FileConfig, CardViewSettings, DEFAULT_SETTINGS, CARD_VIEW_TYPE } from "./src/types";
 import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath, parseCSV, migrateFileConfigKey } from "./src/utils";
 import { AddEntryModal, NoteExpanderModal, FileConfigModal } from "./src/modals";
 
-// Register Chart.js components
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip);
+// Lazy-load SheetJS — only paid when an .xlsx is actually read or written.
+// Cached after first call so subsequent loads are free.
+let xlsxModule: typeof XLSXType | null = null;
+async function loadXLSX(): Promise<typeof XLSXType> {
+  if (!xlsxModule) xlsxModule = await import("xlsx");
+  return xlsxModule;
+}
+
+// Lazy-load Chart.js + register the bits we use. Only paid when the dashboard
+// view first renders. Sessions that only touch books/movies/quotes/dictionary
+// never load Chart.js at all.
+type ChartModule = typeof import("chart.js");
+let chartModule: ChartModule | null = null;
+async function loadChart(): Promise<ChartModule> {
+  if (chartModule) return chartModule;
+  const mod = await import("chart.js");
+  mod.Chart.register(mod.LineController, mod.LineElement, mod.PointElement, mod.LinearScale, mod.CategoryScale, mod.Filler, mod.Tooltip);
+  chartModule = mod;
+  return mod;
+}
 
 // ─── View ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +83,7 @@ export class XLSXCardView extends FileView {
     this.isXlsx = file.extension === "xlsx";
     try {
       if (this.isXlsx) {
+        const XLSX = await loadXLSX();
         const buf = await this.app.vault.readBinary(file);
         const wb = XLSX.read(buf, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -122,6 +145,7 @@ export class XLSXCardView extends FileView {
     if (!this.file) return;
     try {
       if (this.isXlsx) {
+        const XLSX = await loadXLSX();
         const wb = XLSX.utils.book_new();
         const data = [this.headers, ...this.rows.map(r => this.headers.map(h => r[h] ?? ""))];
         const ws = XLSX.utils.aoa_to_sheet(data);
@@ -362,7 +386,10 @@ export class XLSXCardView extends FileView {
     if (!content) return;
 
     if (!this.headers.length) { content.createEl("p",{text:"Empty or unreadable file.",cls:"csv-empty-state"}); return; }
-    if (this.mode === "dashboard") this.renderDashboard(content);
+    // renderDashboard is async (lazy-loads Chart.js); no one awaits renderView,
+    // so the fire-and-forget here is intentional — dashboard chrome paints
+    // synchronously, the chart lands a tick later.
+    if (this.mode === "dashboard") void this.renderDashboard(content);
     else if (this.mode === "library") this.renderLibrary(content);
     else if (this.mode === "kanban-genre") this.renderKanbanGenre(content);
     else this.renderTable(content);
@@ -567,9 +594,9 @@ export class XLSXCardView extends FileView {
 
   private selectedDate: string | null = null;
   private selectedHabit: string | null = null;
-  private chartInstance: Chart | null = null;
+  private chartInstance: ChartType | null = null;
 
-  private renderDashboard(container: HTMLElement): void {
+  private async renderDashboard(container: HTMLElement): Promise<void> {
     const dateCol = this.getDateCol();
     if (!dateCol) {
       container.createEl("p", { text: "No date column detected.", cls: "csv-empty-state" });
@@ -726,7 +753,13 @@ export class XLSXCardView extends FileView {
       this.chartInstance = null;
     }
 
-    // Create chart
+    // Lazy-load Chart.js — first visit to a habit-tracker file pays the
+    // ~200KB Chart.js init; subsequent renders are cached. The dashboard's
+    // habit grid + stats render synchronously above, so the page is usable
+    // before the chart paints.
+    const { Chart } = await loadChart();
+    // The view may have been navigated away from while we were loading.
+    if (!canvas.isConnected) return;
     this.chartInstance = new Chart(canvas, {
       type: "line",
       data: {
@@ -2147,6 +2180,7 @@ export default class CardViewPlugin extends Plugin {
 
     try {
       if (isXlsx) {
+        const XLSX = await loadXLSX();
         const buf = await this.app.vault.readBinary(file);
         const wb = XLSX.read(buf, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -2330,6 +2364,7 @@ export default class CardViewPlugin extends Plugin {
       let currentRows: CSVRow[] = [];
       try {
         if (isXlsx) {
+          const XLSX = await loadXLSX();
           const buf = await this.app.vault.readBinary(file);
           const wb = XLSX.read(buf, { type: "array" });
           const ws = wb.Sheets[wb.SheetNames[0]];
@@ -2383,6 +2418,7 @@ export default class CardViewPlugin extends Plugin {
       try {
         // Save to main file (XLSX or CSV)
         if (isXlsx) {
+          const XLSX = await loadXLSX();
           const ws = XLSX.utils.json_to_sheet(rows.map(r => {
             const obj: Record<string, string> = {};
             headers.forEach(h => { obj[h] = r[h] ?? ""; });
