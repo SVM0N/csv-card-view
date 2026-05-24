@@ -284,6 +284,41 @@ export class XLSXCardView extends FileView {
 
   private notesFileExists(row: CSVRow) { return !!this.app.vault.getAbstractFileByPath(this.notesFilePath(row)); }
 
+  /**
+   * Remove a row, save, re-render — and offer Undo via a Notice. Restoring
+   * preserves the original index, so kanban / table positions don't visually
+   * jump on undo. Idempotent: clicking Undo twice is a no-op (the button
+   * disables itself after the first click).
+   *
+   * Used by every delete path (expander modal, kanban right-click, table
+   * row button) so deletes have one consistent escape hatch.
+   */
+  private deleteWithUndo(row: CSVRow): void {
+    const idx = this.rows.indexOf(row);
+    if (idx < 0) return;
+    this.rows.splice(idx, 1);
+    this.scheduleSave();
+    this.renderView();
+
+    const title = this.getTitle(row) || "entry";
+    const frag = document.createDocumentFragment();
+    frag.createSpan({ text: `Deleted “${title}”. ` });
+    const undoBtn = frag.createEl("button", { text: "Undo", cls: "csv-notice-undo" });
+    const notice = new Notice(frag, 6000);
+    undoBtn.addEventListener("click", () => {
+      if (undoBtn.hasAttribute("disabled")) return;
+      undoBtn.setAttribute("disabled", "true");
+      // Clamp insert position — other deletes/adds during the 6s window
+      // may have shifted the array; idx may now be past end.
+      const insertAt = Math.min(idx, this.rows.length);
+      this.rows.splice(insertAt, 0, row);
+      this.scheduleSave();
+      this.renderView();
+      notice.hide();
+      new Notice(`Restored “${title}”`, 2500);
+    });
+  }
+
   private async openOrCreateNotes(row: CSVRow): Promise<void> {
     const path = this.notesFilePath(row);
     let file = this.app.vault.getAbstractFileByPath(path) as TFile|null;
@@ -315,17 +350,8 @@ export class XLSXCardView extends FileView {
         this.scheduleSave();
         this.renderView();
       },
-      // Delete: remove the original row from the live array, then save+rerender.
-      // Find by reference identity (this.rows holds the same object refs that
-      // are passed into the expander), not by title — handles duplicates.
-      () => {
-        const idx = this.rows.indexOf(row);
-        if (idx >= 0) {
-          this.rows.splice(idx, 1);
-          this.scheduleSave();
-          this.renderView();
-        }
-      }
+      // Delete with undo: the helper handles splice + save + rerender + Notice.
+      () => this.deleteWithUndo(row)
     ).open();
   }
 
@@ -2005,7 +2031,7 @@ if (!csvData || !csvData.length) {
         });
       }
       menu.addSeparator();
-      menu.addItem(i=>i.setTitle("Delete").setIcon("trash").onClick(()=>{ this.rows.splice(this.rows.indexOf(row),1); this.scheduleSave(); this.renderView(); }));
+      menu.addItem(i=>i.setTitle("Delete").setIcon("trash").onClick(()=>this.deleteWithUndo(row)));
       menu.showAtMouseEvent(e);
     });
   }
@@ -2067,8 +2093,8 @@ if (!csvData || !csvData.length) {
       const hasFile = this.notesFileExists(row);
       at.createEl("button",{cls:`csv-table-notes-btn ${hasFile?"exists":""}`,text:hasFile?"📄":"✚",title:hasFile?"Open notes":"Create notes"})
         .addEventListener("click",()=>this.openOrCreateNotes(row));
-      at.createEl("button",{cls:"csv-table-del-btn",text:"✕"})
-        .addEventListener("click",()=>{ const actualIdx = this.rows.indexOf(row); if(actualIdx>=0) this.rows.splice(actualIdx,1); this.scheduleSave(); this.renderView(); });
+      at.createEl("button",{cls:"csv-table-del-btn",text:"✕",title:"Delete row (Undo available)"})
+        .addEventListener("click",()=>this.deleteWithUndo(row));
     });
   }
 

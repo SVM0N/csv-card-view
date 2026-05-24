@@ -2495,3 +2495,18 @@ select.csv-add-row-control {
   color: var(--text-muted);
   background: transparent;
 }
+
+/* Undo button in delete Notice — small, inline, looks like a link. */
+.csv-notice-undo {
+  margin-left: 6px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.csv-notice-undo:hover { background: var(--background-modifier-hover); }
+.csv-notice-undo[disabled] { opacity: 0.4; cursor: default; }
