@@ -81,41 +81,17 @@ function resolvePath(input, baseFolder) {
   return stack.join("/");
 }
 
+// Mirror of src/utils.ts → parseCSV (Papa-backed). Kept as a JS copy because
+// these tests run plain `node`, not the bundled plugin. Behaviour must match
+// the production wrapper one-for-one — when the wrapper changes, change this.
+import Papa from "papaparse";
 function parseCSV(raw) {
-  const lines = raw.split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return { headers: [], rows: [] };
-
-  const parseRow = (line) => {
-    const result = [];
-    let field = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQ && line[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQ = !inQ;
-        }
-      } else if (ch === ',' && !inQ) {
-        result.push(field);
-        field = "";
-      } else {
-        field += ch;
-      }
-    }
-    result.push(field);
-    return result;
-  };
-
-  const headers = parseRow(lines[0]);
-  const rows = lines.slice(1).map(l => {
-    const vals = parseRow(l);
+  if (!raw || !raw.trim()) return { headers: [], rows: [] };
+  const result = Papa.parse(raw, { header: true, skipEmptyLines: true });
+  const headers = (result.meta.fields ?? []).map(String);
+  const rows = (result.data ?? []).map(r => {
     const row = {};
-    headers.forEach((h, i) => {
-      row[h] = vals[i] ?? "";
-    });
+    headers.forEach(h => { row[h] = r[h] != null ? String(r[h]) : ""; });
     return row;
   });
   return { headers, rows };
@@ -216,15 +192,20 @@ test("parseCSV: handles headers only (no data rows)", () => {
   assertEqual(result.rows, []);
 });
 
-test("parseCSV: handles newlines inside quoted fields", () => {
+test("parseCSV: preserves newlines inside quoted fields", () => {
+  // Regression: the old hand-rolled parser split on \n before parsing quotes,
+  // so a multi-line cell silently truncated. The Papa-backed wrapper keeps
+  // the embedded newlines intact — important for long-form Notes / Quote
+  // cells in books.xlsx and quotes.xlsx.
   const csv = `Title,Content
 "Post 1","Line 1
 Line 2
 Line 3"`;
   const result = parseCSV(csv);
-  // Note: Current parser doesn't handle embedded newlines in quotes
-  // This test documents current behavior
   assertEqual(result.headers, ["Title", "Content"]);
+  assertEqual(result.rows.length, 1);
+  assertEqual(result.rows[0].Title, "Post 1");
+  assertEqual(result.rows[0].Content, "Line 1\nLine 2\nLine 3");
 });
 
 test("parseCSV: handles fields with only quotes", () => {
@@ -269,10 +250,16 @@ test("parseCSV: handles special characters in unquoted fields", () => {
 });
 
 test("parseCSV: handles duplicate headers", () => {
+  // Papa renames duplicate headers with _N suffix rather than letting
+  // assignments override each other (which was the prior behaviour). Pinning
+  // the new behaviour here so a future regression is visible. Real data
+  // doesn't have duplicate headers — this is just for robustness.
   const csv = "Name,Name,Name\nA,B,C";
   const result = parseCSV(csv);
-  // Last value wins due to object key behavior
-  assertEqual(result.rows[0].Name, "C");
+  assertEqual(result.headers, ["Name", "Name_1", "Name_2"]);
+  assertEqual(result.rows[0].Name, "A");
+  assertEqual(result.rows[0].Name_1, "B");
+  assertEqual(result.rows[0].Name_2, "C");
 });
 
 console.log("\n=== Column Resolution ===\n");

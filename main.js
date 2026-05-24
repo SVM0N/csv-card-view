@@ -34044,7 +34044,7 @@ var utils = {
 var version = XLSX.version;
 
 // main.ts
-var import_papaparse = __toESM(require_papaparse_min());
+var import_papaparse2 = __toESM(require_papaparse_min());
 
 // node_modules/@kurkle/color/dist/color.esm.js
 function round(v) {
@@ -45671,8 +45671,27 @@ var DEFAULT_SETTINGS = {
 var CARD_VIEW_TYPE = "xlsx-card-view";
 
 // src/utils.ts
+var import_papaparse = __toESM(require_papaparse_min());
 function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
+}
+function parseCSV(raw) {
+  var _a, _b;
+  if (!raw || !raw.trim())
+    return { headers: [], rows: [] };
+  const result = import_papaparse.default.parse(raw, {
+    header: true,
+    skipEmptyLines: true
+  });
+  const headers = ((_a = result.meta.fields) != null ? _a : []).map(String);
+  const rows = ((_b = result.data) != null ? _b : []).map((r) => {
+    const row = {};
+    headers.forEach((h) => {
+      row[h] = r[h] != null ? String(r[h]) : "";
+    });
+    return row;
+  });
+  return { headers, rows };
 }
 function resolvePath(input, baseFolder) {
   if (!input)
@@ -46191,7 +46210,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
         }
       } else {
         const text = await this.app.vault.read(file);
-        const parsed = this.parseCSV(text);
+        const parsed = parseCSV(text);
         this.headers = parsed.headers;
         this.rows = parsed.rows;
       }
@@ -46248,7 +46267,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
         const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
         const csvPath = `${helperFolder}/${this.file.basename}.csv`;
         if (await this.app.vault.adapter.exists(csvPath)) {
-          const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
+          const csvContent = import_papaparse2.default.unparse(this.rows, { columns: this.headers });
           await this.app.vault.adapter.write(csvPath, csvContent);
         }
       } else {
@@ -46262,43 +46281,6 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     } catch (e) {
       console.error("CardView save error", e);
     }
-  }
-  // ── CSV ────────────────────────────────────────────────────────────────────
-  parseCSV(raw) {
-    const lines = raw.split(/\r?\n/).filter((l) => l.trim());
-    if (!lines.length)
-      return { headers: [], rows: [] };
-    const parseRow = (line) => {
-      const result = [];
-      let field = "", inQ = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (inQ && line[i + 1] === '"') {
-            field += '"';
-            i++;
-          } else
-            inQ = !inQ;
-        } else if (ch === "," && !inQ) {
-          result.push(field);
-          field = "";
-        } else
-          field += ch;
-      }
-      result.push(field);
-      return result;
-    };
-    const headers = parseRow(lines[0]);
-    const rows = lines.slice(1).map((l) => {
-      const vals = parseRow(l);
-      const row = {};
-      headers.forEach((h, i) => {
-        var _a;
-        row[h] = (_a = vals[i]) != null ? _a : "";
-      });
-      return row;
-    });
-    return { headers, rows };
   }
   // ── Per-file config ────────────────────────────────────────────────────────
   get fileCfg() {
@@ -47171,7 +47153,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
       if (!await this.app.vault.adapter.exists(helperFolder)) {
         await this.app.vault.adapter.mkdir(helperFolder);
       }
-      const csvContent = import_papaparse.default.unparse(this.rows, { columns: this.headers });
+      const csvContent = import_papaparse2.default.unparse(this.rows, { columns: this.headers });
       await this.app.vault.adapter.write(csvPath, csvContent);
     }
     const dateCol = this.getDateCol();
@@ -48171,7 +48153,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
     });
   }
   async renderAddEntryForm(source, el, ctx) {
-    var _a, _b, _c;
+    var _a, _b;
     const lines = source.split("\n").map((l) => l.trim()).filter(Boolean);
     let filePath = "";
     for (const line of lines) {
@@ -48214,9 +48196,9 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
         }
       } else {
         const text = await this.app.vault.read(file);
-        const result = import_papaparse.default.parse(text, { header: true, skipEmptyLines: true });
-        headers = (_c = result.meta.fields) != null ? _c : [];
-        rows = result.data;
+        const parsed = parseCSV(text);
+        headers = parsed.headers;
+        rows = parsed.rows;
       }
     } catch (e) {
       el.createEl("p", { text: `Error reading file: ${e}`, cls: "csv-add-error" });
@@ -48332,7 +48314,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
       var _a2, _b2;
       const newRow = {};
       headers.forEach((h) => {
-        var _a3, _b3, _c2, _d;
+        var _a3, _b3, _c, _d;
         if (binaryCols.includes(h)) {
           newRow[h] = toggleStates[h] ? "1" : "0";
         } else if (inputs[h] instanceof HTMLSelectElement && inputs[h].value === "__custom__") {
@@ -48340,7 +48322,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
         } else if (inputs[h] instanceof HTMLTextAreaElement) {
           newRow[h] = inputs[h].value;
         } else {
-          newRow[h] = (_d = (_c2 = inputs[h]) == null ? void 0 : _c2.value) != null ? _d : "";
+          newRow[h] = (_d = (_c = inputs[h]) == null ? void 0 : _c.value) != null ? _d : "";
         }
       });
       const hasDate = dateCols.length > 0 && dateCols.some((h) => {
@@ -48375,8 +48357,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
           }
         } else {
           const text = await this.app.vault.read(file);
-          const result = import_papaparse.default.parse(text, { header: true, skipEmptyLines: true });
-          currentRows = result.data;
+          currentRows = parseCSV(text).rows;
         }
       } catch (e) {
         new import_obsidian2.Notice(`Error reading file: ${e}`);
@@ -48426,10 +48407,10 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
           if (!await this.app.vault.adapter.exists(helperFolder)) {
             await this.app.vault.adapter.mkdir(helperFolder);
           }
-          const csvContent = import_papaparse.default.unparse(rows2, { columns: headers });
+          const csvContent = import_papaparse2.default.unparse(rows2, { columns: headers });
           await this.app.vault.adapter.write(csvPath, csvContent);
         } else {
-          const csv = import_papaparse.default.unparse(rows2, { columns: headers });
+          const csv = import_papaparse2.default.unparse(rows2, { columns: headers });
           await this.app.vault.modify(file, csv);
         }
         new import_obsidian2.Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);

@@ -19,7 +19,7 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, Category
 
 // Import from src modules
 import { CSVRow, ViewMode, FileConfig, CardViewSettings, DEFAULT_SETTINGS, CARD_VIEW_TYPE } from "./src/types";
-import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath } from "./src/utils";
+import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath, parseCSV } from "./src/utils";
 import { AddEntryModal, NoteExpanderModal, FileConfigModal } from "./src/modals";
 
 // Register Chart.js components
@@ -70,7 +70,7 @@ export class XLSXCardView extends FileView {
         }
       } else {
         const text = await this.app.vault.read(file);
-        const parsed = this.parseCSV(text);
+        const parsed = parseCSV(text);
         this.headers = parsed.headers;
         this.rows = parsed.rows;
       }
@@ -132,29 +132,6 @@ export class XLSXCardView extends FileView {
         await this.app.vault.modify(this.file, csv);
       }
     } catch (e) { console.error("CardView save error", e); }
-  }
-
-  // ── CSV ────────────────────────────────────────────────────────────────────
-
-  private parseCSV(raw: string): { headers: string[]; rows: CSVRow[] } {
-    const lines = raw.split(/\r?\n/).filter(l => l.trim());
-    if (!lines.length) return { headers: [], rows: [] };
-    const parseRow = (line: string): string[] => {
-      const result: string[] = []; let field = "", inQ = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') { if (inQ && line[i+1]==='"') { field+='"'; i++; } else inQ=!inQ; }
-        else if (ch===',' && !inQ) { result.push(field); field=""; }
-        else field+=ch;
-      }
-      result.push(field); return result;
-    };
-    const headers = parseRow(lines[0]);
-    const rows = lines.slice(1).map(l => {
-      const vals = parseRow(l); const row: CSVRow = {};
-      headers.forEach((h,i) => { row[h] = vals[i]??""; }); return row;
-    });
-    return { headers, rows };
   }
 
   // ── Per-file config ────────────────────────────────────────────────────────
@@ -2149,9 +2126,9 @@ export default class CardViewPlugin extends Plugin {
         }
       } else {
         const text = await this.app.vault.read(file);
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-        headers = result.meta.fields ?? [];
-        rows = result.data as CSVRow[];
+        const parsed = parseCSV(text);
+        headers = parsed.headers;
+        rows = parsed.rows;
       }
     } catch (e) {
       el.createEl("p", { text: `Error reading file: ${e}`, cls: "csv-add-error" });
@@ -2331,8 +2308,7 @@ export default class CardViewPlugin extends Plugin {
           }
         } else {
           const text = await this.app.vault.read(file);
-          const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-          currentRows = result.data as CSVRow[];
+          currentRows = parseCSV(text).rows;
         }
       } catch (e) {
         new Notice(`Error reading file: ${e}`);

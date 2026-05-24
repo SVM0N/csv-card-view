@@ -3,42 +3,15 @@
  * Run with: node test-csv-parser.mjs
  */
 
-// Copy of parseCSV from main.ts for isolated testing
+// Mirror of src/utils.ts → parseCSV (Papa-backed). Kept in sync by hand.
+import Papa from "papaparse";
 function parseCSV(raw) {
-  const lines = raw.split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return { headers: [], rows: [] };
-
-  const parseRow = (line) => {
-    const result = [];
-    let field = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQ && line[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQ = !inQ;
-        }
-      } else if (ch === ',' && !inQ) {
-        result.push(field);
-        field = "";
-      } else {
-        field += ch;
-      }
-    }
-    result.push(field);
-    return result;
-  };
-
-  const headers = parseRow(lines[0]);
-  const rows = lines.slice(1).map(l => {
-    const vals = parseRow(l);
+  if (!raw) return { headers: [], rows: [] };
+  const result = Papa.parse(raw, { header: true, skipEmptyLines: true });
+  const headers = (result.meta.fields ?? []).map(String);
+  const rows = (result.data ?? []).map(r => {
     const row = {};
-    headers.forEach((h, i) => {
-      row[h] = vals[i] ?? "";
-    });
+    headers.forEach(h => { row[h] = r[h] != null ? String(r[h]) : ""; });
     return row;
   });
   return { headers, rows };

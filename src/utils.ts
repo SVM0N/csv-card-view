@@ -1,7 +1,33 @@
+import Papa from "papaparse";
 import { CSVRow } from "./types";
 
 export function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|#^[\]]/g,"").replace(/\s+/g," ").trim().slice(0,100);
+}
+
+/**
+ * Parse a CSV string into `{headers, rows}` using PapaParse. Values stay as
+ * strings (no `dynamicTyping`) so they round-trip back to disk unchanged.
+ * Missing trailing fields are filled with "" so every row carries every
+ * declared header — downstream code reads `row[h]` directly without ?? "".
+ *
+ * Replaces the in-main-ts hand-rolled parser, which split on newlines first
+ * and so silently truncated any cell containing an embedded `\n` inside
+ * quotes (the long-form "Notes" / "Description" / "Quote" columns).
+ */
+export function parseCSV(raw: string): { headers: string[]; rows: CSVRow[] } {
+  if (!raw || !raw.trim()) return { headers: [], rows: [] };
+  const result = Papa.parse<Record<string, string>>(raw, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  const headers = (result.meta.fields ?? []).map(String);
+  const rows: CSVRow[] = (result.data ?? []).map(r => {
+    const row: CSVRow = {};
+    headers.forEach(h => { row[h] = (r as Record<string, unknown>)[h] != null ? String((r as Record<string, unknown>)[h]) : ""; });
+    return row;
+  });
+  return { headers, rows };
 }
 
 /**
@@ -155,71 +181,7 @@ export function showSelectPicker(
   });
 }
 
-// ─── CSV Parsing ──────────────────────────────────────────────────────────────
-
-export function parseCSV(text: string): { headers: string[]; rows: CSVRow[] } {
-  const lines: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (char === '"') {
-      if (inQuotes && text[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if ((char === '\n' || (char === '\r' && text[i + 1] === '\n')) && !inQuotes) {
-      lines.push(current);
-      current = "";
-      if (char === '\r') i++;
-    } else if (char === '\r' && !inQuotes) {
-      lines.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  if (current) lines.push(current);
-
-  const parseRow = (line: string): string[] => {
-    const fields: string[] = [];
-    let field = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inQ && line[i + 1] === '"') { field += '"'; i++; }
-        else inQ = !inQ;
-      } else if (c === ',' && !inQ) {
-        fields.push(field);
-        field = "";
-      } else {
-        field += c;
-      }
-    }
-    fields.push(field);
-    return fields;
-  };
-
-  const nonEmpty = lines.filter(l => l.trim());
-  if (nonEmpty.length === 0) return { headers: [], rows: [] };
-  const headers = parseRow(nonEmpty[0]);
-  const rows: CSVRow[] = nonEmpty.slice(1).map(line => {
-    const vals = parseRow(line);
-    const row: CSVRow = {};
-    headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
-    return row;
-  });
-  return { headers, rows };
-}
-
-export function escapeCSV(val: string): string {
-  if (!val) return "";
-  if (val.includes(",") || val.includes('"') || val.includes("\n") || val.includes("\r")) {
-    return '"' + val.replace(/"/g, '""') + '"';
-  }
-  return val;
-}
+// `parseCSV` (Papa-backed) and `escapeCSV` previously lived here too. They
+// were orphaned in an earlier refactor — never wired into main.ts. The new
+// Papa wrapper at the top of this file replaces parseCSV; for serialization
+// `Papa.unparse(...)` is called directly from main.ts (see doSave + csv-add).
