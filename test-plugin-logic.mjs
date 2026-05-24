@@ -804,6 +804,49 @@ test("resolvePath: empty input passes through", () => {
   assertEqual(resolvePath("", "Knowledge/Test"), "");
 });
 
+console.log("\n=== migrateFileConfigKey ===\n");
+
+// Mirror of src/utils.ts → migrateFileConfigKey. Backs the vault.on("rename")
+// hook in main.ts so per-file config (cardFields, defaultMode, etc.) follows
+// the file when the user moves or renames it inside Obsidian.
+function migrateFileConfigKey(configs, oldPath, newPath) {
+  if (!configs[oldPath]) return configs;
+  if (oldPath === newPath) return configs;
+  if (!configs[newPath]) configs[newPath] = configs[oldPath];
+  delete configs[oldPath];
+  return configs;
+}
+
+test("migrateFileConfigKey: moves entry from old key to new", () => {
+  const configs = { "Knowledge/old.xlsx": { defaultMode: "library" } };
+  migrateFileConfigKey(configs, "Knowledge/old.xlsx", "Knowledge/new.xlsx");
+  assertEqual(configs, { "Knowledge/new.xlsx": { defaultMode: "library" } });
+});
+
+test("migrateFileConfigKey: no-op if old key absent", () => {
+  const configs = { "Knowledge/other.xlsx": { defaultMode: "table" } };
+  migrateFileConfigKey(configs, "Knowledge/missing.xlsx", "Knowledge/new.xlsx");
+  assertEqual(configs, { "Knowledge/other.xlsx": { defaultMode: "table" } });
+});
+
+test("migrateFileConfigKey: no-op if old and new path are equal", () => {
+  const configs = { "Knowledge/same.xlsx": { defaultMode: "library" } };
+  migrateFileConfigKey(configs, "Knowledge/same.xlsx", "Knowledge/same.xlsx");
+  assertEqual(configs, { "Knowledge/same.xlsx": { defaultMode: "library" } });
+});
+
+test("migrateFileConfigKey: caller-set new entry wins, old still cleared", () => {
+  // If somehow the new path already has a config (shouldn't happen via
+  // a real rename, but defensive), prefer the existing entry and drop
+  // the orphan rather than silently overwrite the user's later choice.
+  const configs = {
+    "Knowledge/old.xlsx": { defaultMode: "library" },
+    "Knowledge/new.xlsx": { defaultMode: "table" },
+  };
+  migrateFileConfigKey(configs, "Knowledge/old.xlsx", "Knowledge/new.xlsx");
+  assertEqual(configs, { "Knowledge/new.xlsx": { defaultMode: "table" } });
+});
+
 // ============================================================================
 // Summary
 // ============================================================================

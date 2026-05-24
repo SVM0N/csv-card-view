@@ -19,7 +19,7 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, Category
 
 // Import from src modules
 import { CSVRow, ViewMode, FileConfig, CardViewSettings, DEFAULT_SETTINGS, CARD_VIEW_TYPE } from "./src/types";
-import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath, parseCSV } from "./src/utils";
+import { sanitizeFilename, titleCase, formatRatingForDisplay, showSelectPicker, resolvePath, parseCSV, migrateFileConfigKey } from "./src/utils";
 import { AddEntryModal, NoteExpanderModal, FileConfigModal } from "./src/modals";
 
 // Register Chart.js components
@@ -2061,6 +2061,26 @@ export default class CardViewPlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
       await this.renderAddEntryForm(source.trim(), el, ctx);
     });
+
+    // Migrate per-file config keys when the user renames or moves a
+    // tracked xlsx/csv inside Obsidian. Without this, `fileConfigs[oldPath]`
+    // (cardFields, categoryColumn, defaultMode, etc.) is orphaned and the
+    // file silently reverts to auto-detected defaults.
+    this.registerEvent(this.app.vault.on("rename", async (file, oldPath) => {
+      if (!(file instanceof TFile)) return;
+      if (file.extension !== "csv" && file.extension !== "xlsx") return;
+      if (!this.settings.fileConfigs[oldPath]) return;
+      migrateFileConfigKey(this.settings.fileConfigs, oldPath, file.path);
+      await this.saveSettings();
+    }));
+
+    // Same for delete — drop the orphaned entry so data.json doesn't grow forever.
+    this.registerEvent(this.app.vault.on("delete", async (file) => {
+      if (!(file instanceof TFile)) return;
+      if (!this.settings.fileConfigs[file.path]) return;
+      delete this.settings.fileConfigs[file.path];
+      await this.saveSettings();
+    }));
 
     // Register csv-refresh code block for manual refresh button
     this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el, ctx) => {

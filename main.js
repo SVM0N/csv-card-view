@@ -45827,6 +45827,16 @@ function showSelectPicker(anchor, currentValue, allValues, onSelect, _container)
     }
   });
 }
+function migrateFileConfigKey(configs, oldPath, newPath) {
+  if (!configs[oldPath])
+    return configs;
+  if (oldPath === newPath)
+    return configs;
+  if (!configs[newPath])
+    configs[newPath] = configs[oldPath];
+  delete configs[oldPath];
+  return configs;
+}
 
 // src/modals.ts
 var import_obsidian = require("obsidian");
@@ -48133,6 +48143,24 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {
       await this.renderAddEntryForm(source.trim(), el, ctx);
     });
+    this.registerEvent(this.app.vault.on("rename", async (file, oldPath) => {
+      if (!(file instanceof import_obsidian2.TFile))
+        return;
+      if (file.extension !== "csv" && file.extension !== "xlsx")
+        return;
+      if (!this.settings.fileConfigs[oldPath])
+        return;
+      migrateFileConfigKey(this.settings.fileConfigs, oldPath, file.path);
+      await this.saveSettings();
+    }));
+    this.registerEvent(this.app.vault.on("delete", async (file) => {
+      if (!(file instanceof import_obsidian2.TFile))
+        return;
+      if (!this.settings.fileConfigs[file.path])
+        return;
+      delete this.settings.fileConfigs[file.path];
+      await this.saveSettings();
+    }));
     this.registerMarkdownCodeBlockProcessor("csv-refresh", (source, el, ctx) => {
       const btn = el.createEl("button", {
         cls: "csv-refresh-btn"

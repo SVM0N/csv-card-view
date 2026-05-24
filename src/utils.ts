@@ -185,3 +185,22 @@ export function showSelectPicker(
 // were orphaned in an earlier refactor — never wired into main.ts. The new
 // Papa wrapper at the top of this file replaces parseCSV; for serialization
 // `Papa.unparse(...)` is called directly from main.ts (see doSave + csv-add).
+
+/**
+ * Move a per-file config entry from `oldPath` to `newPath` in-place,
+ * returning the mutated object. Used by the vault rename/move hook so the
+ * file's cardFields / categoryColumn / defaultMode picks follow the file
+ * when the user reorganises their vault. No-op if there's no entry for
+ * `oldPath`, or if `newPath` already has one (caller-set values win).
+ */
+export function migrateFileConfigKey<T>(
+  configs: Record<string, T>,
+  oldPath: string,
+  newPath: string,
+): Record<string, T> {
+  if (!configs[oldPath]) return configs;
+  if (oldPath === newPath) return configs;
+  if (!configs[newPath]) configs[newPath] = configs[oldPath];
+  delete configs[oldPath];
+  return configs;
+}
