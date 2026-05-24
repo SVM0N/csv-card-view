@@ -46162,7 +46162,7 @@ var FileConfigModal = class extends import_obsidian.Modal {
 // main.ts
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, index, plugin_tooltip);
 var XLSXCardView = class extends import_obsidian2.FileView {
-  constructor(leaf, settings) {
+  constructor(leaf, settings, persistSettings) {
     super(leaf);
     this.headers = [];
     this.rows = [];
@@ -46180,6 +46180,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     this.libraryStatusFilter = "all";
     this.libraryGenreFilter = "all";
     this.settings = settings;
+    this.persistSettings = persistSettings;
     this.mode = settings.defaultMode;
     this.renderComponent = new import_obsidian2.Component();
     this.renderComponent.load();
@@ -46296,11 +46297,10 @@ var XLSXCardView = class extends import_obsidian2.FileView {
     return this.file ? (_a = this.settings.fileConfigs[this.file.path]) != null ? _a : {} : {};
   }
   saveFileCfg(cfg) {
-    var _a;
     if (!this.file)
       return;
     this.settings.fileConfigs[this.file.path] = cfg;
-    (_a = this.app.plugins.plugins["csv-card-view"]) == null ? void 0 : _a.saveSettings();
+    void this.persistSettings();
   }
   // ── Field helpers ──────────────────────────────────────────────────────────
   // ── Field helpers with fallback chains ────────────────────────────────────
@@ -48137,7 +48137,7 @@ var CardViewPlugin = class extends import_obsidian2.Plugin {
   }
   async onload() {
     await this.loadSettings();
-    this.registerView(CARD_VIEW_TYPE, (leaf) => new XLSXCardView(leaf, this.settings));
+    this.registerView(CARD_VIEW_TYPE, (leaf) => new XLSXCardView(leaf, this.settings, () => this.saveSettings()));
     this.registerExtensions(["csv", "xlsx"], CARD_VIEW_TYPE);
     this.addSettingTab(new CardViewSettingTab(this.app, this));
     this.registerMarkdownCodeBlockProcessor("csv-add", async (source, el, ctx) => {

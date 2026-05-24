@@ -36,10 +36,16 @@ export class XLSXCardView extends FileView {
   private isXlsx = false;
   private saveTimer: number | null = null;
   private searchQuery: string = "";
+  // Callback into the plugin to persist `settings` to data.json.
+  // Passed at construction time (see CardViewPlugin.onload) so the view
+  // doesn't have to reach back through `(app as any).plugins.plugins[...]`
+  // to find its own plugin instance.
+  private persistSettings: () => Promise<void>;
 
-  constructor(leaf: WorkspaceLeaf, settings: CardViewSettings) {
+  constructor(leaf: WorkspaceLeaf, settings: CardViewSettings, persistSettings: () => Promise<void>) {
     super(leaf);
     this.settings = settings;
+    this.persistSettings = persistSettings;
     this.mode = settings.defaultMode;
     this.renderComponent = new Component();
     this.renderComponent.load();
@@ -152,8 +158,8 @@ export class XLSXCardView extends FileView {
   private saveFileCfg(cfg: FileConfig): void {
     if (!this.file) return;
     this.settings.fileConfigs[this.file.path] = cfg;
-    // Persist via plugin — we get a reference to the plugin through the app
-    (this.app as any).plugins.plugins["csv-card-view"]?.saveSettings();
+    // Fire-and-forget — saveSettings is debounce-safe inside Obsidian.
+    void this.persistSettings();
   }
 
   // ── Field helpers ──────────────────────────────────────────────────────────
@@ -2053,7 +2059,7 @@ export default class CardViewPlugin extends Plugin {
   settings: CardViewSettings = DEFAULT_SETTINGS;
   async onload(): Promise<void> {
     await this.loadSettings();
-    this.registerView(CARD_VIEW_TYPE, leaf=>new XLSXCardView(leaf, this.settings));
+    this.registerView(CARD_VIEW_TYPE, leaf=>new XLSXCardView(leaf, this.settings, () => this.saveSettings()));
     this.registerExtensions(["csv","xlsx"], CARD_VIEW_TYPE);
     this.addSettingTab(new CardViewSettingTab(this.app, this));
 
