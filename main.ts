@@ -2069,11 +2069,14 @@ export default class CardViewPlugin extends Plugin {
       const dateVal = dateInput.value;
       const existing = rows.find(r => r[dateCols[0]] === dateVal);
 
-      // Title hint: "Updating <date>" vs default "New entry" — gives the
-      // user a clear "I am editing, not creating" signal.
+      // Title hint, card accent, and button label all flip together so the
+      // user can tell at a glance that the form is showing what's already
+      // saved for this date (not a blank new entry).
       if (titleEl) {
         titleEl.setText(existing ? `Updating ${dateVal}` : "New entry");
       }
+      card.classList.toggle("is-updating", !!existing);
+      submitBtn.setText(existing ? "Update" : "Add");
 
       // Binary toggles — set from existing or clear back to false.
       binaryCols.forEach(h => {

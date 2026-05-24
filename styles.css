@@ -76,8 +76,12 @@
 @media (max-width: 600px) {
   .csv-toolbar-title { display: none; }
   .csv-toolbar { padding: 8px 12px; }
-  .csv-search-input { width: 100%; min-width: 120px; }
-  .csv-search-wrap { flex: 1; min-width: 140px; }
+  /* `!important` here defeats the desktop `.csv-search-input:focus { width:220px }`
+     rule which otherwise wins on specificity and forces the input wider than
+     its mobile wrap (overflowing the toolbar). On phones we want the input
+     to always fill the wrap, focused or not. */
+  .csv-search-input { width: 100% !important; min-width: 0; max-width: 100%; }
+  .csv-search-wrap { flex: 1 1 140px; min-width: 0; max-width: 100%; }
   /* Toolbar buttons go icon-tight on mobile */
   .csv-cfg-btn, .csv-add-btn { padding: 6px 10px; font-size: 12px; }
   .csv-row-count { display: none; }
@@ -138,6 +142,7 @@
   color: var(--csv-text);
   width: 180px;
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.15s, width 0.2s;
 }
 
@@ -2237,6 +2242,18 @@ td .csv-select-chip {
   background: var(--background-secondary);
   border-radius: 14px;
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 0.15s;
+}
+
+/* Update mode (date matches an existing row): subtle accent ring + tinted
+   title so the user sees they're editing rather than creating. */
+.csv-add-card.is-updating {
+  box-shadow: inset 0 0 0 1px var(--csv-blue, var(--text-accent));
+}
+
+.csv-add-card.is-updating .csv-add-card-title {
+  color: var(--csv-blue, var(--text-accent));
 }
 
 .csv-add-card-header {
