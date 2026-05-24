@@ -1008,7 +1008,8 @@ td .csv-select-chip {
   transition: background 0.1s;
 }
 
-.csv-picker-item:hover {
+.csv-picker-item:hover,
+.csv-picker-item--hover {
   background: var(--background-modifier-hover);
 }
 

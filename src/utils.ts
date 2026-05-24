@@ -165,44 +165,94 @@ export function showSelectPicker(
   const listEl = picker.createDiv({ cls: "csv-picker-list" });
   const unique = Array.from(new Set(allValues.filter(Boolean)));
 
+  // Keyboard nav state — tracks which list item is "focused" via the
+  // arrow keys. Selectable items get a numeric data-idx; the highlighted
+  // one carries `.csv-picker-item--hover` to match real mouse hover.
+  let selectableValues: Array<{ value: string; isClear?: boolean; isAdd?: boolean }> = [];
+  let cursor = 0;
+
+  const paintCursor = () => {
+    listEl.querySelectorAll(".csv-picker-item").forEach((el, i) => {
+      el.toggleClass("csv-picker-item--hover", i === cursor);
+      if (i === cursor) (el as HTMLElement).scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  const commit = (item: { value: string; isClear?: boolean }) => {
+    onSelect(item.isClear ? "" : item.value);
+    dismiss();
+  };
+
   const renderList = (filter: string) => {
     listEl.empty();
+    selectableValues = [];
     const filtered = filter ? unique.filter(v => v.toLowerCase().includes(filter.toLowerCase())) : unique;
     if (currentValue) {
+      selectableValues.push({ value: "", isClear: true });
       const clearItem = listEl.createDiv({ cls: "csv-picker-item csv-picker-clear" });
       clearItem.setText("✕ Clear");
-      clearItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(""); dismiss(); });
+      clearItem.addEventListener("mousedown", e => { e.preventDefault(); commit({ value: "", isClear: true }); });
     }
     filtered.forEach(val => {
+      selectableValues.push({ value: val });
       const item = listEl.createDiv({ cls: `csv-picker-item ${val === currentValue ? "active" : ""}` });
       item.setText(val);
-      item.addEventListener("mousedown", e => { e.preventDefault(); onSelect(val); dismiss(); });
+      item.addEventListener("mousedown", e => { e.preventDefault(); commit({ value: val }); });
     });
     if (filter && !unique.some(v => v.toLowerCase() === filter.toLowerCase())) {
+      selectableValues.push({ value: filter, isAdd: true });
       const addItem = listEl.createDiv({ cls: "csv-picker-item csv-picker-add" });
       addItem.setText(`+ Add "${filter}"`);
-      addItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(filter); dismiss(); });
+      addItem.addEventListener("mousedown", e => { e.preventDefault(); commit({ value: filter }); });
     }
     if (!filtered.length && !filter) {
       listEl.createDiv({ cls: "csv-picker-empty", text: "No options yet. Type to add." });
     }
+    // Reset the cursor — when the filter narrows, jumping to a stale index
+    // would leave the highlight invisible or off-screen.
+    cursor = Math.min(cursor, Math.max(selectableValues.length - 1, 0));
+    paintCursor();
   };
 
   renderList("");
   // After first render the picker has its real height — recompute so the
   // flip-up decision uses the actual size rather than the 280px estimate.
   reposition();
-  search.addEventListener("input", () => { renderList(search.value); reposition(); });
+  search.addEventListener("input", () => { cursor = 0; renderList(search.value); reposition(); });
 
   setTimeout(() => document.addEventListener("mousedown", onOutside), 0);
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", dismiss);
 
   search.addEventListener("keydown", e => {
-    if (e.key === "Escape") dismiss();
+    if (e.key === "Escape") { dismiss(); return; }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (selectableValues.length) {
+        cursor = (cursor + 1) % selectableValues.length;
+        paintCursor();
+      }
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (selectableValues.length) {
+        cursor = (cursor - 1 + selectableValues.length) % selectableValues.length;
+        paintCursor();
+      }
+      return;
+    }
     if (e.key === "Enter") {
-      const val = search.value.trim();
-      if (val) { onSelect(val); dismiss(); }
+      e.preventDefault();
+      // Prefer the keyboard cursor's pick — that's what the user just
+      // navigated to. Fall back to "create new value from the search box"
+      // only when there's nothing to select (empty filtered list).
+      if (selectableValues[cursor]) {
+        commit(selectableValues[cursor]);
+      } else {
+        const val = search.value.trim();
+        if (val) { onSelect(val); dismiss(); }
+      }
     }
   });
 }
