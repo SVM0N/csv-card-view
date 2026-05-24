@@ -1864,7 +1864,14 @@ if (!csvData || !csvData.length) {
 
   private renderKanbanCard(container: HTMLElement, row: CSVRow, statuses: string[], sc: string|null): void {
     const card = container.createDiv({cls:"csv-kanban-card"});
-    card.createDiv({cls:"csv-kanban-card-title", text:this.getTitle(row)});
+    const notesColForCard = this.getNotesCol();
+    const titleEl = card.createDiv({cls:"csv-kanban-card-title", text:this.getTitle(row)});
+    // Title was styled clickable (dotted underline, cursor: pointer) but had
+    // no handler — the dotted-underline was a promise nothing kept. Now it
+    // opens the same expander as the "⤢ Expand" button.
+    if (notesColForCard) {
+      titleEl.addEventListener("click", e => { e.stopPropagation(); this.openNoteExpander(row, notesColForCard); });
+    }
     const sub = this.getSubtitle(row);
     if (sub) card.createDiv({cls:"csv-kanban-card-sub", text:sub});
 
@@ -1984,7 +1991,9 @@ if (!csvData || !csvData.length) {
     btnRow.createEl("button",{cls:`csv-kanban-notes-btn ${hasFile?"":"csv-kanban-create-btn"}`, text:hasFile?"📄 Open notes file":"✚ Notes file"})
       .addEventListener("click", e => { e.stopPropagation(); this.openOrCreateNotes(row); });
 
-    card.addEventListener("click", e => e.stopPropagation());
+    // (Previously had a click handler that just called stopPropagation — no
+    // useful purpose. Removed; specific child elements stop propagation when
+    // they need to.)
     card.addEventListener("contextmenu", e => {
       const menu = new Menu();
       menu.addItem(i=>i.setTitle("Open / Create Notes file").setIcon("file-text").onClick(()=>this.openOrCreateNotes(row)));
