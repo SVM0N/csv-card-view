@@ -16,6 +16,10 @@ This file stays small on purpose so session startup doesn't eat the context wind
 
 **XLSX support retired** (commit "SWITCH TO CSV AS MAIN"). The plugin is CSV-only — `registerExtensions(["csv"])`, no SheetJS, no `_csv_helpers/` mirror. The migration script (`migrate-xlsx-to-csv.mjs`) preserved the original xlsx files in `Knowledge/Library/Archive/<basename>_pre-csv-migration.xlsx` if anything needs to be recovered. The lossless-ness was verified by `xlsx-to-csv-roundtrip.mjs` (all 10 cell-by-cell checks passed) before any data was touched.
 
+> **Why this matters beyond bundle size:** the `_csv_helpers/` mirror existed solely because Dataview on mobile couldn't parse xlsx. It was a one-way shadow of the xlsx source, kept in sync on every save via three separate code paths (`doSave()`, `generateMobileFiles()`, and the `csv-add` submit handler). With csv as the canonical format, Dataview reads it directly. **One file, zero sync, zero possibility of drift between source and read-target.** If you find yourself reintroducing a "secondary copy of the data" pattern for any reason, push back hard — it's the bug class this migration eliminated.
+
+**XLSX imports going forward**: deliberately not in-plugin. If you get an xlsx, adapt `migrate-xlsx-to-csv.mjs` (CLI script, takes ~10 seconds). Considered and rejected: a palette command "Import XLSX → CSV" that lazy-loads SheetJS as a separate chunk. Lazy-chunk-wise it wouldn't bloat startup, but for a single-user vault that's done migrating, it's dead code. Status quo: csv-native plugin, standalone converter for the rare inflow case.
+
 **All dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget if the user moves the folder again.
 
 **Last shipped**: see `git log --oneline -10`. Recent arc has been mobile-iPhone work: pre-fill of habit add-form by date, picker auto-close fix, toolbar overflow, kanban single-column on phones, search-input mobile overflow, then the CSV-only migration.

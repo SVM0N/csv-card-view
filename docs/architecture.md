@@ -182,7 +182,7 @@ Mobile dashboards remain useful for habit logging and read-only browsing because
 2. **Library** — when category column exists: csv-add form + kanban/table toggle (collapsible genre sections with cards).
 3. **Generic** — fallback: csv-add form + expandable scrollable table (used for dictionary etc.).
 
-Both the `csv-add` write target and the `dataviewjs` read target point at the same canonical CSV. (Pre-migration these were split because xlsx couldn't be read by Dataview directly, so a `_csv_helpers/<file>.csv` mirror was kept in sync on every save. The mirror folder is gone.)
+Both the `csv-add` write target and the `dataviewjs` read target point at the same canonical CSV. Pre-migration these were split because xlsx couldn't be read by Dataview directly, so a `_csv_helpers/<file>.csv` mirror was kept in sync on every save via three separate code paths (`doSave()`, `generateMobileFiles()`, and the `csv-add` submit handler). The mirror folder is gone — **one file, zero sync, zero possibility of drift between source and read-target.** If a future change tempts you to add a "secondary copy" of the data anywhere, push back: that's the bug class this architecture eliminated.
 
 ### csv-add code block
 The plugin registers a `csv-add` markdown code block processor. Renders a labeled form for every column. Auto-detects column types from existing data: cols with ≤15 unique values become dropdowns with a "+ Custom" option. Writes directly to the CSV file. For habit-shape files (date col present), `syncFromExisting()` pre-fills the form when the date input matches an existing row; the card gets an `is-updating` class (subtle accent ring + tinted title) and the submit button label flips to "Update".
