@@ -319,6 +319,36 @@ export class XLSXCardView extends FileView {
     });
   }
 
+  /**
+   * Open the right-click context menu for a row. Same items everywhere
+   * the user can click on a row — kanban card, library card, table row.
+   * Previously only the kanban card had this; the parity gap meant
+   * power-users in library/table had to use buttons for status changes
+   * and the toolbar for delete.
+   */
+  private openRowContextMenu(row: CSVRow, e: MouseEvent): void {
+    const menu = new Menu();
+    menu.addItem(i => i.setTitle("Open / Create Notes file").setIcon("file-text").onClick(() => this.openOrCreateNotes(row)));
+    const notesCol = this.getNotesCol();
+    if (notesCol) {
+      menu.addItem(i => i.setTitle("Open entry").setIcon("maximize").onClick(() => this.openNoteExpander(row, notesCol)));
+    }
+    const sc = this.getStatusCol();
+    if (sc) {
+      const statuses = this.getColumnValues(sc);
+      if (statuses.length) {
+        menu.addSeparator();
+        statuses.forEach(s => {
+          if (s === row[sc]) return;
+          menu.addItem(i => i.setTitle(`Mark as: ${s}`).onClick(() => { row[sc] = s; this.scheduleSave(); this.renderView(); }));
+        });
+      }
+    }
+    menu.addSeparator();
+    menu.addItem(i => i.setTitle("Delete").setIcon("trash").onClick(() => this.deleteWithUndo(row)));
+    menu.showAtMouseEvent(e);
+  }
+
   private async openOrCreateNotes(row: CSVRow): Promise<void> {
     const path = this.notesFilePath(row);
     let file = this.app.vault.getAbstractFileByPath(path) as TFile|null;
@@ -1846,6 +1876,7 @@ if (!csvData || !csvData.length) {
             this.openNoteExpander(row, notesCol);
           }
         });
+        card.addEventListener("contextmenu", e => this.openRowContextMenu(row, e));
       });
     });
 
@@ -2039,20 +2070,7 @@ if (!csvData || !csvData.length) {
     // (Previously had a click handler that just called stopPropagation — no
     // useful purpose. Removed; specific child elements stop propagation when
     // they need to.)
-    card.addEventListener("contextmenu", e => {
-      const menu = new Menu();
-      menu.addItem(i=>i.setTitle("Open / Create Notes file").setIcon("file-text").onClick(()=>this.openOrCreateNotes(row)));
-      if (sc) {
-        menu.addSeparator();
-        statuses.forEach(s => {
-          if (s===row[sc]) return;
-          menu.addItem(i=>i.setTitle(`Mark as: ${s}`).onClick(()=>{ row[sc]=s; this.scheduleSave(); this.renderView(); }));
-        });
-      }
-      menu.addSeparator();
-      menu.addItem(i=>i.setTitle("Delete").setIcon("trash").onClick(()=>this.deleteWithUndo(row)));
-      menu.showAtMouseEvent(e);
-    });
+    card.addEventListener("contextmenu", e => this.openRowContextMenu(row, e));
   }
 
   // ── Table ──────────────────────────────────────────────────────────────────
@@ -2088,6 +2106,7 @@ if (!csvData || !csvData.length) {
     const tbody = table.createEl("tbody");
     filteredRows.forEach((row) => {
       const tr = tbody.createEl("tr");
+      tr.addEventListener("contextmenu", e => this.openRowContextMenu(row, e));
       this.headers.forEach(h => {
         const td = tr.createEl("td");
         if (this.isNotesCol(h)) {
