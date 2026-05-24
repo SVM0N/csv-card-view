@@ -2052,6 +2052,72 @@ export default class CardViewPlugin extends Plugin {
     // Submit lives inside the card so the whole menu reads as one unit.
     const submitBtn = card.createEl("button", { text: "Add", cls: "csv-add-submit" });
 
+    // ── Pre-fill from existing row (habit trackers) ────────────────────────────
+    // When the date input matches an existing row in the file, populate the
+    // form with that row's values so the user can SEE what's already saved
+    // before they edit. Previously the form was always blank and a habit
+    // update was indistinguishable from a fresh entry — easy to wipe an
+    // existing day's notes by tabbing through.
+    //
+    // Only runs when the file has a date column (i.e. habit-tracker shape);
+    // library/generic dashboards have no date and skip naturally.
+    const titleEl = header.querySelector(".csv-add-card-title") as HTMLElement | null;
+    const syncFromExisting = (): void => {
+      if (!dateCols.length) return;
+      const dateInput = inputs[dateCols[0]] as HTMLInputElement | undefined;
+      if (!dateInput) return;
+      const dateVal = dateInput.value;
+      const existing = rows.find(r => r[dateCols[0]] === dateVal);
+
+      // Title hint: "Updating <date>" vs default "New entry" — gives the
+      // user a clear "I am editing, not creating" signal.
+      if (titleEl) {
+        titleEl.setText(existing ? `Updating ${dateVal}` : "New entry");
+      }
+
+      // Binary toggles — set from existing or clear back to false.
+      binaryCols.forEach(h => {
+        const checkbox = inputs[h] as HTMLInputElement | undefined;
+        if (!checkbox) return;
+        const v = (existing?.[h] ?? "").toLowerCase().trim();
+        const on = v === "1" || v === "true" || v === "yes";
+        checkbox.checked = on;
+        toggleStates[h] = on;
+      });
+
+      // Text/select fields and notes textareas — set from existing or clear.
+      [...otherCols, ...notesCols].forEach(h => {
+        const input = inputs[h];
+        if (!input) return;
+        const val = existing?.[h] ?? "";
+        if (input instanceof HTMLSelectElement) {
+          // If the existing value isn't a known option, leave the select on
+          // "—" and put the value into the custom input slot. Otherwise pick
+          // the matching option.
+          const opt = Array.from(input.options).find(o => o.value === val);
+          if (opt) {
+            input.value = val;
+            // Hide any custom-row that was previously open.
+            const customRow = (inputs[`${h}__custom`] as HTMLInputElement | undefined)?.closest(".csv-add-row-custom") as HTMLElement | null;
+            if (customRow) customRow.style.display = "none";
+          } else {
+            input.value = val ? "" : "";
+          }
+        } else if (input instanceof HTMLTextAreaElement) {
+          input.value = val;
+        } else {
+          (input as HTMLInputElement).value = val;
+        }
+      });
+    };
+    // Pre-fill once on initial render, then re-sync whenever the user
+    // navigates to a different date.
+    syncFromExisting();
+    if (dateCols.length) {
+      const dateInput = inputs[dateCols[0]] as HTMLInputElement | undefined;
+      dateInput?.addEventListener("change", syncFromExisting);
+    }
+
     // Expand / collapse wiring. Focusing the first text-ish input on open
     // mirrors iOS sheet behaviour where the keyboard comes up immediately.
     const open = () => {
@@ -2144,14 +2210,14 @@ export default class CardViewPlugin extends Plugin {
         currentRows.push(newRow);
       }
 
-      // Use currentRows instead of stale rows
-      const rows = currentRows;
-
+      // (Previously had `const rows = currentRows` shadowing the outer
+      // `rows` from the form-render scope. Removed so the post-submit
+      // re-sync can mutate the outer array via the captured reference.)
       try {
         // Save to main file (XLSX or CSV)
         if (isXlsx) {
           const XLSX = await loadXLSX();
-          const ws = XLSX.utils.json_to_sheet(rows.map(r => {
+          const ws = XLSX.utils.json_to_sheet(currentRows.map(r => {
             const obj: Record<string, string> = {};
             headers.forEach(h => { obj[h] = r[h] ?? ""; });
             return obj;
@@ -2170,39 +2236,52 @@ export default class CardViewPlugin extends Plugin {
           if (!await this.app.vault.adapter.exists(helperFolder)) {
             await this.app.vault.adapter.mkdir(helperFolder);
           }
-          const csvContent = Papa.unparse(rows, { columns: headers });
+          const csvContent = Papa.unparse(currentRows, { columns: headers });
           await this.app.vault.adapter.write(csvPath, csvContent);
         } else {
-          const csv = Papa.unparse(rows, { columns: headers });
+          const csv = Papa.unparse(currentRows, { columns: headers });
           await this.app.vault.modify(file, csv);
         }
 
         new Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);
 
-        // Clear form (but keep date for quick re-entry)
-        binaryCols.forEach(h => {
-          toggleStates[h] = false;
-          const checkbox = inputs[h] as HTMLInputElement;
-          if (checkbox) checkbox.checked = false;
-        });
-        [...otherCols, ...notesCols].forEach(h => {
-          const input = inputs[h];
-          if (input instanceof HTMLSelectElement) {
-            input.selectedIndex = 0;
-          } else if (input instanceof HTMLTextAreaElement) {
-            input.value = "";
-          } else if (input) {
-            (input as HTMLInputElement).value = "";
-          }
-          const customInput = inputs[`${h}__custom`];
-          if (customInput) {
-            (customInput as HTMLInputElement).value = "";
-            // The custom input lives inside a .csv-add-row-custom wrapper —
-            // hide the row itself so the layout stays in sync with the select.
-            const customRow = (customInput as HTMLInputElement).closest(".csv-add-row-custom") as HTMLElement | null;
-            if (customRow) customRow.style.display = "none";
-          }
-        });
+        // Sync our cached rows to what's now on disk so syncFromExisting reads
+        // fresh data. Mutates in place to preserve the closure reference.
+        rows.length = 0;
+        rows.push(...currentRows);
+
+        if (dateCols.length > 0) {
+          // Habit-tracker shape: don't clear — re-sync the form so it shows
+          // the just-saved state. The user can see what they recorded for
+          // this day; if they want a different day they change the date.
+          syncFromExisting();
+        } else {
+          // Other shapes (library / generic): clear for the next entry. Many
+          // entries with the same shape go into the same form session.
+          binaryCols.forEach(h => {
+            toggleStates[h] = false;
+            const checkbox = inputs[h] as HTMLInputElement;
+            if (checkbox) checkbox.checked = false;
+          });
+          [...otherCols, ...notesCols].forEach(h => {
+            const input = inputs[h];
+            if (input instanceof HTMLSelectElement) {
+              input.selectedIndex = 0;
+            } else if (input instanceof HTMLTextAreaElement) {
+              input.value = "";
+            } else if (input) {
+              (input as HTMLInputElement).value = "";
+            }
+            const customInput = inputs[`${h}__custom`];
+            if (customInput) {
+              (customInput as HTMLInputElement).value = "";
+              // The custom input lives inside a .csv-add-row-custom wrapper —
+              // hide the row itself so the layout stays in sync with the select.
+              const customRow = (customInput as HTMLInputElement).closest(".csv-add-row-custom") as HTMLElement | null;
+              if (customRow) customRow.style.display = "none";
+            }
+          });
+        }
         // Card stays open after a successful add so a quick second entry is one
         // tap away; user can collapse with the × header button when finished.
 
