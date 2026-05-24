@@ -425,8 +425,7 @@
 
 .csv-notes-empty {
   color: var(--csv-text-faint);
-  font-style: italic;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .csv-notes-textarea {
@@ -1016,6 +1015,28 @@ td .csv-select-chip {
   line-height: 1.4;
   border-left: 2px solid var(--csv-border);
   padding-left: 7px;
+  cursor: text; /* hints "click to edit"; matches the textarea that opens */
+  border-radius: 2px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.csv-kanban-notes-preview:hover {
+  background: var(--csv-surface-2);
+  border-left-color: var(--csv-accent);
+}
+
+/* Empty state doubles as the "+ Add note" affordance — quiet, only visible
+   on card hover so it doesn't compete with the title when nothing's there. */
+.csv-kanban-notes-preview--empty {
+  font-style: normal;
+  color: var(--csv-text-faint);
+  border-left-color: transparent;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.csv-kanban-card:hover .csv-kanban-notes-preview--empty {
+  opacity: 1;
 }
 
 /* Title is now the clickable nav element */
@@ -1028,16 +1049,6 @@ td .csv-select-chip {
 .csv-kanban-card-title:hover {
   color: var(--interactive-accent);
   text-decoration: underline solid;
-}
-
-/* ─── Kanban inline note editor ───────────────────────────────────────────── */
-
-.csv-kanban-notes-preview {
-  cursor: pointer;
-}
-
-.csv-kanban-notes-preview--empty {
-  display: none;
 }
 
 .csv-kanban-notes-editor {
@@ -1240,7 +1251,6 @@ td .csv-select-chip {
   flex-shrink: 0;
 }
 
-.csv-expander-edit-btn,
 .csv-expander-save-btn,
 .csv-expander-close-btn {
   padding: 5px 12px;
@@ -1251,12 +1261,6 @@ td .csv-select-chip {
   transition: all 0.15s;
   border: 1px solid var(--csv-border);
 }
-
-.csv-expander-edit-btn {
-  background: transparent;
-  color: var(--csv-text-muted);
-}
-.csv-expander-edit-btn:hover { background: var(--background-modifier-hover); color: var(--csv-text); }
 
 .csv-expander-save-btn {
   background: var(--csv-accent);
@@ -1278,7 +1282,16 @@ td .csv-select-chip {
   padding: 24px 28px;
   font-size: 14px;
   line-height: 1.7;
+  cursor: text; /* indicates click-to-edit; respects text-selection */
+  border-radius: 4px;
+  transition: background 0.12s ease;
 }
+
+.csv-expander-rendered:hover { background: var(--csv-surface-2); }
+/* Links/buttons inside the rendered note keep their own cursor and don't
+   pick up the hover-tint from the editable container. */
+.csv-expander-rendered a,
+.csv-expander-rendered button { cursor: pointer; }
 
 .csv-expander-rendered p { margin: 0 0 0.8em; }
 .csv-expander-rendered p:last-child { margin-bottom: 0; }
@@ -1334,36 +1347,27 @@ td .csv-select-chip {
   border-color: var(--csv-accent);
 }
 
-/* ─── Table expand button ─────────────────────────────────────────────────── */
+/* ─── Table notes cell — whole cell opens the expander ───────────────────── */
 
 .csv-table-notes-cell {
-  position: relative;
-}
-
-.csv-table-expand-btn {
-  display: none;
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 1px solid var(--csv-border);
-  background: var(--csv-surface);
-  color: var(--csv-text-muted);
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.12s ease;
 }
 
-.csv-table tr:hover .csv-table-expand-btn {
-  display: inline-block;
+.csv-table tr:hover .csv-table-notes-cell {
+  background: var(--csv-surface-2);
 }
 
-.csv-table-expand-btn:hover {
-  background: var(--csv-accent);
-  color: white;
-  border-color: transparent;
+/* Empty-cell placeholder — only visible on row hover so unfilled notes
+   don't clutter the table at rest. */
+.csv-table-notes-empty {
+  color: var(--csv-text-faint);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.csv-table tr:hover .csv-table-notes-empty {
+  opacity: 1;
 }
 
 /* ─── Column config button & modal ────────────────────────────────────────── */

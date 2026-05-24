@@ -186,14 +186,18 @@ export class NoteExpanderModal extends Modal {
     });
 
     // ── Notes section ────────────────────────────────────────────────────────
+    // No "Edit" button: clicking the rendered area enters edit mode (same
+    // click-to-edit pattern as the kanban card preview). Links and embeds
+    // inside the markdown stay clickable — we suppress the edit-swap only
+    // when the click landed on an anchor or the user is selecting text.
     const notesDivider = contentEl.createDiv({ cls: "csv-expander-divider" });
     notesDivider.createDiv({ cls: "csv-expander-notes-label", text: this.notesCol });
-    const editBtn = notesDivider.createEl("button", { cls: "csv-expander-edit-btn", text: "✏️ Edit" });
 
     let isEditing = false;
     let currentText = this.row[this.notesCol] ?? "";
 
     const rendered = contentEl.createDiv({ cls: "csv-expander-rendered markdown-rendered" });
+    rendered.title = "Click to edit";
     const editorWrap = contentEl.createDiv({ cls: "csv-expander-editor" });
     editorWrap.style.display = "none";
 
@@ -202,7 +206,7 @@ export class NoteExpanderModal extends Modal {
       if (currentText.trim()) {
         MarkdownRenderer.render(this.app, currentText, rendered, this.filePath, this.renderComponent);
       } else {
-        rendered.createDiv({ cls: "csv-notes-empty", text: "No notes yet. Click ✏️ Edit to add." });
+        rendered.createDiv({ cls: "csv-notes-empty", text: "+ Add note" });
       }
     };
     renderMarkdown();
@@ -211,22 +215,38 @@ export class NoteExpanderModal extends Modal {
     ta.value = currentText;
     ta.addEventListener("input", () => { currentText = ta.value; });
 
-    editBtn.addEventListener("click", () => {
-      isEditing = !isEditing;
-      if (isEditing) {
-        rendered.style.display = "none";
-        editorWrap.style.display = "flex";
-        ta.value = currentText;
-        ta.focus();
-        editBtn.setText("👁 Preview");
-      } else {
-        editorWrap.style.display = "none";
-        rendered.style.display = "";
-        currentText = ta.value;
-        renderMarkdown();
-        editBtn.setText("✏️ Edit");
-      }
+    const enterEdit = () => {
+      if (isEditing) return;
+      isEditing = true;
+      rendered.style.display = "none";
+      editorWrap.style.display = "flex";
+      ta.value = currentText;
+      ta.focus();
+    };
+    const exitEdit = () => {
+      if (!isEditing) return;
+      isEditing = false;
+      editorWrap.style.display = "none";
+      rendered.style.display = "";
+      currentText = ta.value;
+      renderMarkdown();
+    };
+
+    rendered.addEventListener("click", (e) => {
+      // Don't hijack clicks on links, buttons, or other interactive children —
+      // they should open as the user expects.
+      const target = e.target as HTMLElement;
+      if (target.closest("a, button, input, textarea, [contenteditable]")) return;
+      // Don't enter edit mode if the user just finished a text selection inside
+      // the rendered note; respects normal text-select semantics.
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) return;
+      enterEdit();
     });
+    // Esc inside the textarea returns to the preview. Click outside (blur)
+    // also exits — keeps the modal feeling lightweight.
+    ta.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); ta.blur(); } });
+    ta.addEventListener("blur", exitEdit);
 
     // ── Footer buttons ───────────────────────────────────────────────────────
     // Layout: [Delete] ............... [Cancel] [Save & close]
@@ -250,6 +270,8 @@ export class NoteExpanderModal extends Modal {
 
     rightBtns.createEl("button", { cls: "csv-expander-save-btn", text: "Save & close" })
       .addEventListener("click", () => {
+        // If still in edit mode (user clicked Save without blurring), grab
+        // the live textarea content; otherwise currentText is already fresh.
         if (isEditing) currentText = ta.value;
         this.row[this.notesCol] = currentText;
         this.onSave(this.row);

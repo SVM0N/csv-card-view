@@ -1896,12 +1896,18 @@ if (!csvData || !csvData.length) {
     const hasInlineNotes = !!(notesCol && row[notesCol]?.trim());
     const hasFile = this.notesFileExists(row);
 
+    // The preview is itself the editor affordance — clicking opens the
+    // inline textarea. When there's no note yet, render a quiet "+ Add note"
+    // placeholder in the same slot so the click target is discoverable
+    // without needing a separate "Edit note" button.
     const notesPreviewEl = card.createDiv({cls:"csv-kanban-notes-preview"});
     if (hasInlineNotes && notesCol) {
       const plain = row[notesCol].replace(/#{1,6}\s/g,"").replace(/[*_>`]/g,"").replace(/\n+/g," ").trim();
       notesPreviewEl.setText(plain.slice(0,120) + (plain.length > 120 ? "…" : ""));
+      notesPreviewEl.title = "Click to edit";
     } else {
       notesPreviewEl.addClass("csv-kanban-notes-preview--empty");
+      if (notesCol) notesPreviewEl.setText("+ Add note");
     }
 
     const notesEditorEl = card.createDiv({cls:"csv-kanban-notes-editor"});
@@ -1932,13 +1938,17 @@ if (!csvData || !csvData.length) {
       if (notesCol) { row[notesCol]=newVal; this.scheduleSave(); }
       notesEditorEl.style.display = "none";
       notesPreviewEl.style.display = "";
-      notesPreviewEl.removeClass("csv-kanban-notes-preview--empty");
       if (newVal.trim()) {
         const plain = newVal.replace(/#{1,6}\s/g,"").replace(/[*_>`]/g,"").replace(/\n+/g," ").trim();
         notesPreviewEl.setText(plain.slice(0,120) + (plain.length > 120 ? "…" : ""));
+        notesPreviewEl.removeClass("csv-kanban-notes-preview--empty");
+        notesPreviewEl.title = "Click to edit";
       } else {
+        // Restore the "+ Add note" placeholder rather than leaving an empty,
+        // invisible click target. Matches initial render exactly.
         notesPreviewEl.addClass("csv-kanban-notes-preview--empty");
-        notesPreviewEl.setText("");
+        notesPreviewEl.setText(notesCol ? "+ Add note" : "");
+        notesPreviewEl.removeAttribute("title");
       }
       // Restore scroll position after the DOM settles
       // Use multiple approaches to ensure scroll is restored even if browser does post-blur adjustments
@@ -1962,11 +1972,12 @@ if (!csvData || !csvData.length) {
 
     notesPreviewEl.addEventListener("click", e => { e.stopPropagation(); openInlineEditor(); });
 
-    // Buttons (visible on hover)
+    // Buttons (visible on hover). "Edit note" used to live here but the
+    // preview above is itself click-to-edit (and shows "+ Add note" when
+    // empty), so the button was a duplicate affordance. Only Expand +
+    // Notes-file remain.
     const btnRow = card.createDiv({cls:"csv-kanban-card-btns"});
     if (notesCol) {
-      btnRow.createEl("button",{cls:"csv-kanban-notes-btn", text:"✏️ Edit note"})
-        .addEventListener("click", e => { e.stopPropagation(); openInlineEditor(); });
       btnRow.createEl("button",{cls:"csv-kanban-notes-btn", text:"⤢ Expand"})
         .addEventListener("click", e => { e.stopPropagation(); this.openNoteExpander(row, notesCol); });
     }
@@ -2028,12 +2039,14 @@ if (!csvData || !csvData.length) {
         if (this.isNotesCol(h)) {
           td.addClass("csv-table-notes-cell");
           const preview = (row[h]??"").replace(/#{1,6}\s/g,"").replace(/[*_>`]/g,"").split("\n").filter(l=>l.trim()).slice(0,2).join(" · ");
-          td.createSpan({ text: preview.slice(0,100)+(preview.length>100?"…":"") });
-          const expandBtn = td.createEl("button", { cls: "csv-table-expand-btn", text: "⤢", title: "Open note" });
-          // Both the cell and the button open the expander
-          const openExpander = (e: MouseEvent) => { e.stopPropagation(); this.openNoteExpander(row, h); };
-          expandBtn.addEventListener("click", openExpander);
-          td.addEventListener("click", openExpander);
+          const display = preview ? (preview.slice(0,100)+(preview.length>100?"…":"")) : "+ Add note";
+          const span = td.createSpan({ text: display });
+          if (!preview) span.addClass("csv-table-notes-empty");
+          td.title = "Click to open note";
+          // Cell-click opens the expander. The "⤢" button used to live here
+          // too, but the cell is the obvious click target — the button was
+          // redundant noise.
+          td.addEventListener("click", (e) => { e.stopPropagation(); this.openNoteExpander(row, h); });
         } else if (this.isSelectCol(h)) {
           this.renderSelectField(td, row, h);
         } else {
