@@ -384,6 +384,10 @@ export class XLSXCardView extends FileView {
 
     const content = this.contentArea;
     if (!content) return;
+    // Kanban manages its own scroll: the board fills the viewport, each
+    // column scrolls internally. Without this flag .csv-content-area also
+    // y-scrolls and the user gets two stacked scrollbars for the same content.
+    content.toggleClass("csv-content-area--no-yscroll", this.mode === "kanban-genre");
 
     if (!this.headers.length) { content.createEl("p",{text:"Empty or unreadable file.",cls:"csv-empty-state"}); return; }
     // renderDashboard is async (lazy-loads Chart.js); no one awaits renderView,
