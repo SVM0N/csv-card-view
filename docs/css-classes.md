@@ -1,0 +1,127 @@
+# CSS class reference
+
+Reference doc — load when editing `styles.css` or tracing a visual bug to its rule. For the component each class belongs to, see [architecture.md](architecture.md).
+
+| Class | Where | Description |
+|---|---|---|
+| `.csv-card-view-root` | Root | Sets CSS vars, flex column layout |
+| `.csv-toolbar` | Both | Top toolbar; `flex-wrap: wrap` so controls drop to a second row on narrow viewports |
+| `.csv-toolbar-controls` | Both | Right-hand group; also wraps |
+| `.csv-toolbar-title` | Both | Filename header; hidden on `max-width: 600px` (redundant with tab) |
+| `.csv-mode-group` | Both | Mode toggle button group |
+| `.csv-cfg-btn` | Both | "⚙ Columns", "📱 Mobile", "💾 Backup" buttons |
+| `.csv-add-btn` | Both | "+ Add" button |
+| `.csv-row-count` | Toolbar | Entry-count chip; hidden on mobile |
+| `.csv-kanban-board` | Kanban | Horizontal flex container |
+| `.csv-kanban-col` | Kanban | Single genre column; phone-scoped to `calc(100vw - 60px)` with scroll-snap |
+| `.csv-kanban-col-header` | Kanban | Column title + count |
+| `.csv-kanban-col-title` | Kanban | Uses `var(--text-accent)` to match Library headers |
+| `.csv-kanban-status-group` | Kanban | Status subgroup within column |
+| `.csv-kanban-status-label` | Kanban | Colored status pill |
+| `.csv-kanban-card` | Kanban | Individual entry card |
+| `.csv-kanban-card-btns` | Kanban | Button row (visible on hover) |
+| `.csv-kanban-notes-preview` | Kanban | Plain-text note excerpt; `--empty` modifier hides it; itself click-to-edit |
+| `.csv-kanban-notes-editor` | Kanban | Inline textarea wrapper (toggled via `display`) |
+| `.csv-select-chip` | Both | Clickable dropdown chip; `.empty` = no value |
+| `.csv-chip-value` | Both | Value span inside chip; `max-width: 200px`, ellipsis |
+| `.csv-select-picker` | Both | Floating dropdown panel (fixed-positioned) |
+| `.csv-picker-search` | Both | Picker search input |
+| `.csv-picker-item` | Both | List item; `.active`/`--hover` = current; `.csv-picker-add` = new value |
+| `.csv-table` | Table | Main table element |
+| `.csv-table-notes-cell` | Table | Notes cell (relative-positioned for expand btn) |
+| `.csv-table-expand-btn` | Table | "⤢" button, shown on row hover |
+| `.csv-col-resize-handle` | Table | Drag handle on `<th>` right edge |
+| `.csv-cell--clipped` | Table | Added at render time when a cell's content overflows its clamp; shows the bottom-fade |
+| `.csv-content-area` | Both | Scroll container for view content |
+| `.csv-content-area--no-yscroll` | Kanban | Modifier that hides outer y-scroll (kanban supplies its own) |
+| `.csv-search-wrap` | Toolbar | Search bar container (`flex: 1` on mobile, `min-width: 0` so it can shrink) |
+| `.csv-search-input` | Toolbar | Search input; desktop `width: 180px` (220px on focus); mobile `width: 100% !important` to defeat the focus expansion |
+| `.csv-search-clear` | Toolbar | Clear search button (×) |
+| `.csv-search-results` | Content | "Found X of Y entries" message |
+| `.csv-add-modal` | Modal | Add entry modal content |
+| `.csv-modal-form` | Modal | Scrollable form area |
+| `.csv-modal-row` | Modal | Label + input pair |
+| `.csv-modal-select` | Modal | `<select>` dropdown in FileConfigModal |
+| `.csv-modal-checkbox-grid` | Modal | Habit column / cardFields selector grid |
+| `.csv-modal-checkbox-label` | Modal | Checkbox + label; `.auto-detected` highlights auto-picked defaults |
+| `.csv-note-expander-modal` | Modal | Wide modal override (`min(780px, 90vw)`) |
+| `.csv-expander-header` | Modal | Title row |
+| `.csv-expander-fields` | Modal | Flex-wrap row of label/value field pairs |
+| `.csv-expander-field-row` | Modal | Single label + value pair |
+| `.csv-expander-field-label` | Modal | Uppercase faint label |
+| `.csv-expander-field-value` | Modal | Clickable editable value; truncated with ellipsis |
+| `.csv-expander-divider` | Modal | Notes section header (label only — Edit toggle removed; click-to-edit) |
+| `.csv-expander-notes-label` | Modal | "Notes" column name label |
+| `.csv-expander-rendered` | Modal | Markdown rendered view (itself click-to-edit) |
+| `.csv-expander-editor` | Modal | Textarea editor view (toggled via `display`) |
+| `.csv-expander-textarea` | Modal | Raw markdown textarea |
+| `.csv-expander-footer` | Modal | Cancel + Save & close buttons |
+| `.csv-dashboard` | Dashboard | Root container with max-width |
+| `.csv-dash-nav` | Dashboard | Date navigator bar |
+| `.csv-dash-nav-btn` | Dashboard | Prev/next arrow buttons |
+| `.csv-dash-date-select` | Dashboard | Date dropdown |
+| `.csv-dash-today-badge` | Dashboard | "Today" indicator pill |
+| `.csv-dash-today-btn` | Dashboard | "Today" quick nav button |
+| `.csv-dash-habits` | Dashboard | Habit toggles section |
+| `.csv-dash-habits-grid` | Dashboard | Grid of habit toggle buttons |
+| `.csv-dash-habit` | Dashboard | Single habit toggle; `.checked` variant |
+| `.csv-dash-habit-check` | Dashboard | Clickable ○/● indicator |
+| `.csv-dash-chart-section` | Dashboard | Chart container |
+| `.csv-dash-stats-bar` | Dashboard | Stats summary row |
+| `.csv-dash-cards-grid` | Dashboard | Per-habit stat cards grid |
+| `.csv-dash-habit-card` | Dashboard | Individual habit stat card |
+| `.csv-dash-habit-card-header` | Dashboard | Icon + name row |
+| `.csv-dash-habit-icon` | Dashboard | Emoji icon for habit |
+| `.csv-dash-habit-years` | Dashboard | Year badges (2024 · 2025 · 2026) |
+| `.csv-dash-habit-progress` | Dashboard | Progress bar container |
+| `.csv-dash-timeline-section` | Dashboard | Per-habit timeline container |
+| `.csv-dash-timeline-grid` | Dashboard | Heatmap grid of day cells |
+| `.csv-dash-timeline-cell` | Dashboard | Single day cell; `.done`, `.missed`, `.no-entry` |
+| `.csv-dash-timeline-month` | Dashboard | Month label in timeline |
+| `.csv-library-filters` | Library | Filters bar (flex, gap) |
+| `.csv-library-filter-select` | Library | Status/genre dropdown |
+| `.csv-library-search` | Library | Search input |
+| `.csv-library-sections` | Library | Container for genre sections |
+| `.csv-library-section` | Library | Collapsible `<details>` element |
+| `.csv-library-section-header` | Library | Genre header with arrow + count |
+| `.csv-library-grid` | Library | Card grid (auto-fill columns) |
+| `.csv-library-card` | Library | Individual entry card |
+| `.csv-library-card-title` | Library | Title with green dot |
+| `.csv-library-done-dot` | Library | Green dot for watched/read |
+| `.csv-library-card-meta` | Library | Author/year text |
+| `.csv-library-card-rating` | Library | Star rating display |
+| `.csv-library-card-tags` | Library | Tags container |
+| `.csv-library-card-tag` | Library | Individual tag chip |
+| `.csv-add-form` | Code block | Mobile add entry form container |
+| `.csv-add-trigger` | Code block | Collapsed pill (re-opens the card) |
+| `.csv-add-card` | Code block | Expanded grouped card; `.is-updating` adds blue accent ring + tinted title when the date matches an existing row |
+| `.csv-add-card-header` / `-title` / `-close` | Code block | Header bar with × close |
+| `.csv-add-rows` | Code block | Grouped row list with hairline separators |
+| `.csv-add-row` | Code block | Single label/control row; variants: `-date`, `-toggle`, `-field`, `-custom`, `-notes` |
+| `.csv-add-row-label` | Code block | Left-aligned field label |
+| `.csv-add-row-control` | Code block | Right-aligned input/select |
+| `.csv-add-row-textarea` | Code block | Notes textarea (stacked, full width) |
+| `.csv-add-switch` / `-input` / `-track` | Code block | iOS-style switch for binary toggle rows |
+| `.csv-add-submit` | Code block | Submit button (label flips between "Add" / "Update") |
+| `.csv-add-error` | Code block | Error message styling |
+| `.csv-refresh-btn` | Code block | Mobile `↻ refresh` button (subtle, no background) |
+
+## Status colors
+
+Status color variants: `.status-{slug}` where slug = value lowercased, spaces → `-`. Palette:
+
+| Value | Color | CSS var |
+|---|---|---|
+| `finished` / `read` / `watched` / `seen` / `done` | green | `--csv-green`, `--csv-green-bg` |
+| `in-progress` / `reading` / `watching` | blue | `--csv-blue`, `--csv-blue-bg` |
+| `not-started` / `to-read` / `unwatched` / `unread` / `todo` / `no` | grey | `--background-modifier-border` + `--text-muted` |
+| `dropped` | red | `--csv-red`, `--csv-red-bg` |
+
+Theme palette in `:root` (Apple-muted iOS systemGreen/Blue/Red/Orange — confident-but-quiet on both light and dark themes):
+
+```css
+--csv-green:    #30A14E;  --csv-green-bg: rgba(52,199,89,0.13);
+--csv-blue:     #2E7CE6;  --csv-blue-bg:  rgba(0,122,255,0.13);
+--csv-red:      #D5443B;  --csv-red-bg:   rgba(255,59,48,0.12);
+--csv-amber:    #C18000;  --csv-amber-bg: rgba(255,149,0,0.13);
+```
