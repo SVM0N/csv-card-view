@@ -129,11 +129,36 @@ export function showSelectPicker(
   // for backward compatibility.
   document.body.querySelectorAll(".csv-select-picker").forEach(el => el.remove());
   const picker = document.body.createDiv({ cls: "csv-select-picker" });
-  const anchorRect = anchor.getBoundingClientRect();
   picker.style.position = "fixed";
-  picker.style.left = anchorRect.left + "px";
-  picker.style.top = (anchorRect.bottom + 4) + "px";
   picker.style.zIndex = "9999";
+
+  // Anchor below the chip by default, but flip above when there isn't room
+  // below — keeps the dropdown inside the viewport on the bottom edge.
+  const reposition = () => {
+    const rect = anchor.getBoundingClientRect();
+    const pickerH = picker.offsetHeight || 280; // first paint estimate
+    const flipAbove = rect.bottom + 4 + pickerH > window.innerHeight && rect.top - 4 - pickerH > 0;
+    picker.style.left = rect.left + "px";
+    picker.style.top = flipAbove ? (rect.top - 4 - pickerH) + "px" : (rect.bottom + 4) + "px";
+  };
+  reposition();
+
+  // Teardown — defined first so renderList's item handlers can capture it.
+  // Every dismiss path (outside-click, Esc, Enter, scroll, resize, item-pick)
+  // goes through here so the registered listeners are always cleaned up.
+  const onOutside = (e: MouseEvent) => {
+    if (!picker.contains(e.target as Node) && e.target !== anchor) dismiss();
+  };
+  // Capture-phase scroll: catches scrolling on any ancestor (table wrapper,
+  // modal body, content area), not just window. Matches native <select>
+  // behaviour — scroll dismisses the dropdown rather than letting it float.
+  const onScroll = () => dismiss();
+  const dismiss = () => {
+    picker.remove();
+    document.removeEventListener("mousedown", onOutside);
+    window.removeEventListener("scroll", onScroll, true);
+    window.removeEventListener("resize", dismiss);
+  };
 
   const search = picker.createEl("input", { cls: "csv-picker-search", type: "text", placeholder: "Search or add…" });
   search.focus();
@@ -146,17 +171,17 @@ export function showSelectPicker(
     if (currentValue) {
       const clearItem = listEl.createDiv({ cls: "csv-picker-item csv-picker-clear" });
       clearItem.setText("✕ Clear");
-      clearItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(""); picker.remove(); });
+      clearItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(""); dismiss(); });
     }
     filtered.forEach(val => {
       const item = listEl.createDiv({ cls: `csv-picker-item ${val === currentValue ? "active" : ""}` });
       item.setText(val);
-      item.addEventListener("mousedown", e => { e.preventDefault(); onSelect(val); picker.remove(); });
+      item.addEventListener("mousedown", e => { e.preventDefault(); onSelect(val); dismiss(); });
     });
     if (filter && !unique.some(v => v.toLowerCase() === filter.toLowerCase())) {
       const addItem = listEl.createDiv({ cls: "csv-picker-item csv-picker-add" });
       addItem.setText(`+ Add "${filter}"`);
-      addItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(filter); picker.remove(); });
+      addItem.addEventListener("mousedown", e => { e.preventDefault(); onSelect(filter); dismiss(); });
     }
     if (!filtered.length && !filter) {
       listEl.createDiv({ cls: "csv-picker-empty", text: "No options yet. Type to add." });
@@ -164,19 +189,20 @@ export function showSelectPicker(
   };
 
   renderList("");
-  search.addEventListener("input", () => renderList(search.value));
+  // After first render the picker has its real height — recompute so the
+  // flip-up decision uses the actual size rather than the 280px estimate.
+  reposition();
+  search.addEventListener("input", () => { renderList(search.value); reposition(); });
 
-  const close = (e: MouseEvent) => {
-    if (!picker.contains(e.target as Node) && e.target !== anchor) {
-      picker.remove(); document.removeEventListener("mousedown", close);
-    }
-  };
-  setTimeout(() => document.addEventListener("mousedown", close), 0);
+  setTimeout(() => document.addEventListener("mousedown", onOutside), 0);
+  window.addEventListener("scroll", onScroll, true);
+  window.addEventListener("resize", dismiss);
+
   search.addEventListener("keydown", e => {
-    if (e.key === "Escape") { picker.remove(); document.removeEventListener("mousedown", close); }
+    if (e.key === "Escape") dismiss();
     if (e.key === "Enter") {
       const val = search.value.trim();
-      if (val) { onSelect(val); picker.remove(); document.removeEventListener("mousedown", close); }
+      if (val) { onSelect(val); dismiss(); }
     }
   });
 }
