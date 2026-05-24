@@ -6,9 +6,7 @@
 
 **All paths in the dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget again if the user moves the folder once more.
 
-**Last shipped (commit `69151d0`)**: handoff session pickup + accurate file/test counts. Preceded by `9f0743a` which delivered data-driven Library cards, status color palette extension, cardFields picker, accent-color category headers, mobile dictionary column-width fix, and Watched/Unwatched normalization. 105 tests green (84 logic + 21 mobile).
-
-**To bring the new Library/ folder live**: in Obsidian, open each of the 5 xlsx and click **📱 Mobile**. That writes the helper CSV at `Library/_csv_helpers/<name>.csv` and the dashboard at `Library/Mobile/<name>.md` with `file: ../<name>.xlsx`. After all five exist, `npm run test:mobile` should report all green (the simulator silently skips missing files until then).
+**Last shipped (commit `5caea8b`)**: picker arrow-key nav + Enter to commit. Capped a 14-commit session ("What else can we improve?") that ran four themes — stability quick-wins, perf, UX polish, and an honest before/after benchmark. 115 tests green (88 logic + 21 mobile + 6 csv). See **2026-05-23 session arc** below for the full breakdown.
 
 **Active dev loop**:
 ```
@@ -16,8 +14,54 @@ npm run build:deploy && npm run regen:mobile && npm run test:all
 ```
 (then Cmd+R in Obsidian to load the new plugin)
 
-**Known carryover from the move**:
-- `data.json` `fileConfigs` keys are absolute vault paths and **do not follow renames** — per-file picks (cardFields, categoryColumn, etc.) from the old `Knowledge/Test/...` keys are orphaned. If the user customized them and wants them back, hand-edit `.obsidian/plugins/csv-card-view/data.json` and rename the keys. Otherwise auto-detection runs from scratch.
+**Bundle now minified, lazy-loaded**: 1338 KB unminified-eager → 720 KB minified-lazy. Startup eval down from 3.4ms to 0.9ms because SheetJS no longer initialises until an xlsx is opened, and Chart.js no longer initialises until the dashboard view renders. `node bench-load.mjs main.js` reproduces the numbers anytime — keep an eye on parse+eval after big refactors.
+
+**Watch mode** is unminified with inline sourcemaps (`npm run dev`); only production builds (`npm run build` / `build:deploy`) minify. So devtools in Obsidian is readable during dev.
+
+**`fileConfigs` keys now follow renames/deletes** — the longstanding orphan-on-rename gotcha is fixed via a `vault.on("rename")` / `vault.on("delete")` hook. Old `Knowledge/Test/...` entries in your live `data.json` may still be orphaned from before the fix — hand-edit if you want them back; otherwise auto-detection runs from scratch.
+
+---
+
+## 2026-05-23 session arc — "what else can we improve?"
+
+Open-ended brief: stability, UX, mobile, refactor, load speed. Worked four themes across 14 commits, all 115 tests green between each.
+
+### Stability quick wins (4 commits)
+- `eb594da` **fix(csv): replace hand-rolled parser with Papa wrapper.** The desktop view's `parseCSV` split on `\n` before parsing quoted fields, silently truncating any cell with embedded newlines (long Notes/Quote columns). Papa was already imported for 4 other paths. One `parseCSV` wrapper in `src/utils.ts` now backs every call site. Also dropped two orphaned `parseCSV` / `escapeCSV` copies from a prior refactor that were never wired up. Embedded-newline test now asserts the fix; duplicate-header test pins Papa's `_N` rename.
+- `812f422` **fix: surface load/save errors to the user.** Both `onLoadFile` and `doSave` caught and `console.error`-only-ed. A read failure left an empty view; a save failure looked like "my edits stuck" until reload. Now both emit a `Notice`. The inline CSV serializer in `doSave` also swapped to `Papa.unparse` so `\r` round-trips properly.
+- `d67a667` **feat: follow file renames/deletes in fileConfigs.** Longest-open handoff item. Renaming/moving a file in Obsidian no longer orphans its per-file config (cardFields, defaultMode, etc.). Implemented as a tiny pure helper (`migrateFileConfigKey` in utils) backed by `vault.on("rename")` and `vault.on("delete")` hooks. 4 new tests on the helper.
+- `70c39c6` **refactor: pass saveSettings callback into the view.** `XLSXCardView.saveFileCfg()` previously reached back through `(this.app as any).plugins.plugins["csv-card-view"]?.saveSettings()` — brittle and untyped. Constructor now takes a typed `persistSettings: () => Promise<void>` callback. No behaviour change; coupling is explicit.
+
+### Perf (2 commits, real numbers)
+Bench captured with `bench-load.mjs` (committed) — `node bench-load.mjs main.js`, 5-run averages, measures V8 parse cost on the bundle text and parse+top-level eval.
+
+| Stage | Size | Parse only | Parse+eval |
+|---|---|---|---|
+| Eager + unminified (before) | 1338 KB | 2.6 ms | 3.4 ms |
+| Lazy + unminified | 1533 KB | 2.0 ms | 0.8 ms |
+| **Lazy + minified (now)** | **720 KB** | 1.5 ms | 0.9 ms |
+
+- `1150c9e` **perf: lazy-load SheetJS and Chart.js.** Both were static imports, so SheetJS's lookup tables and Chart.js's component registration ran every plugin enable, even before any xlsx/dashboard opened. Now wrapped behind cached `loadXLSX()` / `loadChart()` helpers using dynamic `import()` with TS `import type` for the type-only references. esbuild's cjs output keeps the modules bundled but defers their factory bodies. SheetJS only paid when an xlsx is opened, edited, or written to by the mobile `csv-add` form; Chart.js only paid when dashboard renders. Dashboard chrome paints synchronously; chart lands a tick later with an `isConnected` guard against detached canvases.
+- `41a45d8` **build: minify production output (50% smaller bundle).** `esbuild.config.mjs` had `minify: false` always. Now production minifies; watch mode keeps minify off + adds inline sourcemaps so devtools stays readable during dev.
+
+### UX polish (8 commits)
+Theme: every visible affordance should do what it advertises, or stop advertising. Drop redundant ceremony; one good affordance beats two competing ones.
+
+- `3ec69ce` **fix(kanban): consolidate scroll — one scrollbar per direction.** Page was y-scrolling AND each column was y-scrolling. Now `.csv-content-area--no-yscroll` modifier (toggled per-mode) hides the outer y-scroll in kanban; board uses `align-items: stretch`; column bodies fill viewport via `min-height: 0` (the flex-min-content trap) instead of the prior arbitrary `max-height: 70vh`.
+- `73ec676` **ux: replace redundant edit buttons with click-to-edit affordances.** Three places had a "click here to edit" button next to a thing that was already click-to-edit:
+  - **Kanban card**: dropped "✏️ Edit note". Preview is itself the editor; shows "+ Add note" (quiet, hover-revealed) when empty.
+  - **NoteExpander modal**: dropped "✏️ Edit" / "👁 Preview" toggle. Click rendered markdown enters edit; blur or Escape returns to preview. Links/buttons inside the note pass through (still clickable); text-selection inside the note doesn't hijack to edit. Empty state is "+ Add note" and is itself click-to-edit.
+  - **Table notes cell**: dropped the inline "⤢" button. Cell-click already opened the expander.
+- `ce9077b` **ux(kanban): wire the title click — it was styled clickable but did nothing.** Title rendered with `cursor: pointer` and a dotted underline (a promise nothing kept). Now opens the expander. Also dropped a card-level `click → stopPropagation` no-op.
+- `e6a8c6f` **feat: undo for deletes.** Every delete path (modal Delete, kanban right-click, table ✕) routes through a `deleteWithUndo(row)` helper that pops a 6s Notice with an Undo button. Restore preserves the original index (clamped if other deletes/adds shifted the array). Modal's `window.confirm` stays — that path is decisive; undo is the safety net for the lighter-weight paths.
+- `d81bccd` **fix(picker): dismiss on scroll/resize, flip up at viewport bottom.** Fixed-positioned picker was anchored to viewport coords at open time and never updated, so scrolling left it floating detached. Now scroll on any ancestor (capture-phase listener) dismisses, matching native `<select>`. Resize too. Open position flips above the anchor when there isn't room below. While in there, every dismiss path routes through a single `dismiss()` so the new listeners are always cleaned up.
+- `2909347` **feat: friendly empty states for empty files.** "Empty or unreadable file." → distinguished into "This file is empty" (no headers) and "No entries yet" (headers but no rows, with a "+ Add the first entry" CTA + a hint listing detected columns).
+- `010cb41` **feat: right-click parity across kanban, library, and table.** Previously only kanban had a context menu. One shared `openRowContextMenu` helper now backs all three views: Open notes file, Open entry, Mark as: <each non-current status>, Delete (uses the new undo flow).
+- `5caea8b` **feat(picker): arrow-key navigation + Enter to commit.** Typing in search narrowed the list but committing still required mousing. Now ↓/↑ wraps, Enter commits the cursor's pick, cursor resets to first match each filter change, scrollIntoView keeps it visible. Same `--hover` class for keyboard + mouse so the visual is consistent.
+
+### Two patterns worth carrying forward
+1. **Measure before the perf claim.** Lazy-loading SheetJS sounds obviously good, but the bench showed bundle GROWING +47KB minified (async wrappers cost something) before the eval win (3.3 → 0.9 ms) made the trade clearly worth it. Without numbers the trade would have been invisible. `bench-load.mjs` is checked in — use it next time someone proposes a refactor that "should be faster."
+2. **One affordance per action.** Every commit in the UX block deleted ceremony around something that already worked. The principle is consistent: if the user can click the thing, don't put a button next to it that does the same thing. Keep one obvious affordance and make it visually discoverable (hover-tint, `cursor`, placeholder text).
 
 ---
 
@@ -41,9 +85,11 @@ This codebase started the session as a working Obsidian plugin with a brittle mo
 - **Build the test harness before the third bug, not after.** A 175-line simulator turned "I think this works" into "the CI knows this works." Every subsequent feature was cheaper because the safety net was already there.
 
 **Open follow-ups** (already in Known issues):
-- `fileConfigs` keys don't follow renames → orphans on file move.
+- ~~`fileConfigs` keys don't follow renames~~ — fixed 2026-05-23 (commit `d67a667`).
 - Mobile folder structure could be configurable (currently hardcoded `Mobile/` sibling).
 - Multi-value select for Category — picker sets a single string today.
+- **Mobile dashboard templates still inline as TS template literals** (~600 lines across three `generate*MobileDashboard` methods). Extracting to `.txt` files loaded via esbuild would give real syntax highlighting and remove the regen-script's parallel copy. Stable + tested today, lower priority.
+- **main.ts back to 2585 lines.** The handoff's `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` split plan is overdue. Risky enough that it deserves a dedicated session rather than a tail-end commit.
 
 ---
 
@@ -60,13 +106,14 @@ An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, or da
 
 ```
 csv-card-view/
-├── main.ts              # Main plugin source (~1839 lines) - XLSXCardView, Settings, Plugin
-├── main.js              # Compiled output — do not edit directly
+├── main.ts              # Main plugin source (~2585 lines) - XLSXCardView, Settings, Plugin
+├── main.js              # Compiled output — do not edit directly (now minified ~720KB)
+├── bench-load.mjs       # Measures bundle parse/eval cost; run after big refactors
 ├── src/
 │   ├── types.ts         # Types, interfaces, DEFAULT_SETTINGS (~40 lines)
-│   ├── utils.ts         # Utility functions (~165 lines)
-│   └── modals.ts        # Modal classes (~295 lines)
-├── styles.css           # All plugin CSS (~1300+ lines)
+│   ├── utils.ts         # Utility functions, parseCSV (Papa), migrateFileConfigKey (~280 lines)
+│   └── modals.ts        # Modal classes (~420 lines)
+├── styles.css           # All plugin CSS (~2555 lines)
 ├── manifest.json        # Obsidian plugin manifest (id: csv-card-view)
 ├── package.json         # deps: xlsx (SheetJS), chart.js, esbuild, obsidian types
 ├── esbuild.config.mjs   # Build configuration
