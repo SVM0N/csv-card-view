@@ -53,7 +53,7 @@ Wide modal (~780px) for viewing/editing a full entry. Three sections: header (ti
 **`FileConfigModal extends Modal`**
 "⚙ Columns" toolbar button. Dropdowns for category/status/notes/default-view + checkbox grid for habit-columns and `cardFields`. Saved to `settings.fileConfigs[filePath]`.
 
-**`XLSXCardView extends FileView`** (name is historical — class is CSV-only post-migration; rename pending, see [handoff.md](../handoff.md))
+**`CardView extends FileView`**
 
 | Method | Purpose |
 |---|---|

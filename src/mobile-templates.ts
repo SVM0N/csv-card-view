@@ -10,7 +10,7 @@ import { titleCase } from "./utils";
  * reads from the CSV helper at `csvPath` because Dataview on mobile can't
  * parse xlsx.
  *
- * These were inline template literals on XLSXCardView for most of the
+ * These were inline template literals on CardView for most of the
  * project's life. Moved out here so:
  *   - main.ts stops shipping ~400 lines of stringified JS that has no
  *     syntax-highlight, no type-check, no isolated test entry point;

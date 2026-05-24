@@ -6,7 +6,7 @@ Reference doc — load when running the dev loop, adding tests, or debugging bui
 
 ```
 csv-card-view/
-├── main.ts                       # XLSXCardView (legacy name), Settings, Plugin (~2200 lines)
+├── main.ts                       # CardView, Settings, Plugin (~2200 lines)
 ├── main.js                       # Compiled output — do not edit directly (minified ~297 KB
 │                                 # post-CSV migration; was 720 KB with SheetJS)
 ├── bench-load.mjs                # Measures bundle parse/eval cost; run after big refactors

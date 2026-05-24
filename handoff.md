@@ -44,8 +44,6 @@ Anything that touches input focus / picker positioning / viewport sizing on mobi
 
 ## Open follow-ups
 
-- **`XLSXCardView` class name is now misleading** — the class is CSV-only post-migration but still named `XLSXCardView` to avoid spreading rename churn through tests / docs in the migration commit. Rename to `CardView` in a focused follow-up: it's used in `main.ts` (class def + `new XLSXCardView(...)` in `onload`) plus mention-only references in `test-plugin-logic.mjs`, `xlsx-to-csv-roundtrip.mjs`, `docs/architecture.md`, `docs/dev-workflow.md`, `src/mobile-templates.ts`.
-
 - **main.ts at ~2300 lines.** The `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` split is overdue but risky without DOM-level test coverage. Deserves a dedicated session and a minimal regression harness designed first.
 
 - **regenerate-mobile-dashboards.mjs still has a parallel template copy** of what's in `src/mobile-templates.ts`. Eliminating needs a plain-JS rewrite so both `.ts` (esbuild) and `.mjs` (node) callers can import the templates without esbuild.

@@ -32,7 +32,7 @@ const FILES = ["books", "movies", "quotes", "dictionary", "habit_tracker"];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Mirror of XLSXCardView.onLoadFile for xlsx — strings only, empty=""  */
+/** Mirror of CardView.onLoadFile semantics (xlsx side — strings only, empty="") */
 function readXlsx(absPath) {
   const buf = fs.readFileSync(absPath);
   const wb = XLSX.read(buf, { type: "buffer" });
