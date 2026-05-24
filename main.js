@@ -46218,6 +46218,7 @@ var XLSXCardView = class extends import_obsidian2.FileView {
       console.error("CardView load error", e);
       this.headers = [];
       this.rows = [];
+      new import_obsidian2.Notice(`Couldn't read ${file.name}: ${e instanceof Error ? e.message : String(e)}`, 8e3);
     }
     if (this.file && ((_a = this.settings.fileConfigs[this.file.path]) == null ? void 0 : _a.defaultMode)) {
       this.mode = this.settings.fileConfigs[this.file.path].defaultMode;
@@ -46271,15 +46272,12 @@ var XLSXCardView = class extends import_obsidian2.FileView {
           await this.app.vault.adapter.write(csvPath, csvContent);
         }
       } else {
-        const esc = (v) => v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
-        const csv = [this.headers.map(esc).join(","), ...this.rows.map((r) => this.headers.map((h) => {
-          var _a2;
-          return esc((_a2 = r[h]) != null ? _a2 : "");
-        }).join(","))].join("\n");
+        const csv = import_papaparse2.default.unparse(this.rows, { columns: this.headers });
         await this.app.vault.modify(this.file, csv);
       }
     } catch (e) {
       console.error("CardView save error", e);
+      new import_obsidian2.Notice(`Couldn't save ${this.file.name}: ${e instanceof Error ? e.message : String(e)}`, 8e3);
     }
   }
   // ── Per-file config ────────────────────────────────────────────────────────

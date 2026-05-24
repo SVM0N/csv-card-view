@@ -74,7 +74,12 @@ export class XLSXCardView extends FileView {
         this.headers = parsed.headers;
         this.rows = parsed.rows;
       }
-    } catch (e) { console.error("CardView load error", e); this.headers = []; this.rows = []; }
+    } catch (e) {
+      console.error("CardView load error", e);
+      this.headers = []; this.rows = [];
+      // Surface to the user — silent failure leaves an empty view with no clue why.
+      new Notice(`Couldn't read ${file.name}: ${e instanceof Error ? e.message : String(e)}`, 8000);
+    }
     // Apply per-file default mode if set, or auto-detect based on columns
     if (this.file && this.settings.fileConfigs[this.file.path]?.defaultMode) {
       this.mode = this.settings.fileConfigs[this.file.path].defaultMode!;
@@ -127,11 +132,15 @@ export class XLSXCardView extends FileView {
           await this.app.vault.adapter.write(csvPath, csvContent);
         }
       } else {
-        const esc = (v: string) => (v.includes(",") || v.includes('"') || v.includes("\n")) ? `"${v.replace(/"/g,'""')}"` : v;
-        const csv = [this.headers.map(esc).join(","), ...this.rows.map(r => this.headers.map(h => esc(r[h]??"")).join(","))].join("\n");
+        const csv = Papa.unparse(this.rows, { columns: this.headers });
         await this.app.vault.modify(this.file, csv);
       }
-    } catch (e) { console.error("CardView save error", e); }
+    } catch (e) {
+      console.error("CardView save error", e);
+      // Surface — the debounced save is invisible, so a permission / iCloud
+      // sync conflict otherwise looks like "my edits stuck" until reload.
+      new Notice(`Couldn't save ${this.file.name}: ${e instanceof Error ? e.message : String(e)}`, 8000);
+    }
   }
 
   // ── Per-file config ────────────────────────────────────────────────────────
