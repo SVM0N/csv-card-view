@@ -415,7 +415,26 @@ export class XLSXCardView extends FileView {
     // y-scrolls and the user gets two stacked scrollbars for the same content.
     content.toggleClass("csv-content-area--no-yscroll", this.mode === "kanban-genre");
 
-    if (!this.headers.length) { content.createEl("p",{text:"Empty or unreadable file.",cls:"csv-empty-state"}); return; }
+    if (!this.headers.length) {
+      // Distinguish "truly malformed" from "brand-new empty file": both end
+      // up here, but most of the time it's the latter (user just created
+      // a new xlsx in Numbers/Excel and there's nothing inside yet).
+      const wrap = content.createDiv({ cls: "csv-empty-state csv-empty-state--big" });
+      wrap.createEl("h3", { text: "This file is empty" });
+      wrap.createEl("p", { text: "Add a header row in your spreadsheet app, then come back — or click + Add in the toolbar to start fresh." });
+      return;
+    }
+    if (this.rows.length === 0) {
+      // Headers present but no data — invite the user to add the first row.
+      // Skip all per-mode renders; they'd produce empty grids that read as
+      // "is this broken?" rather than "I haven't added anything yet."
+      const wrap = content.createDiv({ cls: "csv-empty-state csv-empty-state--big" });
+      wrap.createEl("h3", { text: "No entries yet" });
+      const addBtn = wrap.createEl("button", { cls: "csv-empty-state-action", text: "+ Add the first entry" });
+      addBtn.addEventListener("click", () => this.openAddModal());
+      wrap.createEl("p", { cls: "csv-empty-state-hint", text: `${this.headers.length} column${this.headers.length === 1 ? "" : "s"} detected: ${this.headers.slice(0, 5).join(", ")}${this.headers.length > 5 ? "…" : ""}` });
+      return;
+    }
     // renderDashboard is async (lazy-loads Chart.js); no one awaits renderView,
     // so the fire-and-forget here is intentional — dashboard chrome paints
     // synchronously, the chart lands a tick later.
