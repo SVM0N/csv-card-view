@@ -4,20 +4,20 @@ Reference doc — load when working on the plugin's data model, view classes, mo
 
 ## What this is
 
-An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, dashboard, or library UI. Built for Simon's book library and habit tracking. Four view modes:
+An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, or library UI. Built for Simon's book library and habit tracking. Four view modes:
 - **Dashboard** — date-based habit tracking with chart, streaks, and stats (auto-detected when first column is dates).
 - **Library** — grid of cards with filters (status, genre, search), collapsible genre sections, green-dot for done items, ratings, tags.
 - **By Genre** — kanban grouped by category column, with status subgroups inside each column.
 - **Table** — spreadsheet view with resizable columns.
 
+The plugin used to also handle `.xlsx` (via SheetJS lazy-loaded chunk + `_csv_helpers/` mirror for Dataview). That whole stack was retired in commit "SWITCH TO CSV AS MAIN" — see [handoff.md](../handoff.md) for the rationale and the round-trip validator that proved the migration was lossless.
+
 ## FileView (not TextFileView)
 
-Extends `FileView` directly. `TextFileView` decodes everything as UTF-8 before handing off — destroys binary xlsx data. Instead:
+Extends `FileView` directly. Historical reason: `TextFileView` decodes everything as UTF-8 before handing off — destroyed binary xlsx data when xlsx was still a registered extension. Now that the plugin is CSV-only, `TextFileView` would technically work, but `FileView` is left in place because the modal/view lifecycle is identical and switching is pure churn.
 
-- **XLSX:** `vault.readBinary()` → `XLSX.read(buf, { type: "array" })` (SheetJS)
-- **CSV:** `vault.read()` → `parseCSV` (Papa wrapper in `src/utils.ts`)
-- **XLSX saves:** `vault.modifyBinary()` with `XLSX.write(..., { type: "array" })`
-- **CSV saves:** `vault.modify()` with `Papa.unparse(...)`
+- **CSV read:** `vault.read()` → `parseCSV` (Papa wrapper in `src/utils.ts`)
+- **CSV save:** `vault.modify()` with `Papa.unparse(...)`
 
 All saves are debounced 600ms via `scheduleSave()` → `doSave()`. Edits commit to disk automatically — no explicit save button. Read/write failures surface to the user as `Notice`s, not silent `console.error`s.
 
@@ -53,15 +53,15 @@ Wide modal (~780px) for viewing/editing a full entry. Three sections: header (ti
 **`FileConfigModal extends Modal`**
 "⚙ Columns" toolbar button. Dropdowns for category/status/notes/default-view + checkbox grid for habit-columns and `cardFields`. Saved to `settings.fileConfigs[filePath]`.
 
-**`XLSXCardView extends FileView`**
+**`XLSXCardView extends FileView`** (name is historical — class is CSV-only post-migration; rename pending, see [handoff.md](../handoff.md))
 
 | Method | Purpose |
 |---|---|
-| `onLoadFile(file)` | Reads file, applies per-file default mode, calls `renderView()` |
-| `doSave()` | Writes to disk (binary for xlsx, `Papa.unparse` for csv) |
+| `onLoadFile(file)` | Reads CSV via `vault.read` + `parseCSV`, applies per-file default mode, calls `renderView()` |
+| `doSave()` | `Papa.unparse` → `vault.modify` |
 | `scheduleSave()` | 600ms debounce wrapper |
 | `renderView()` | Clears and rebuilds entire `contentEl` |
-| `renderToolbar(root)` | Mode buttons + search + ⚙ Columns + 📱 Mobile + 💾 Backup + + Add |
+| `renderToolbar(root)` | Mode buttons + search + ⚙ Columns + 📱 Mobile + 💾 Backup + + Add (mobile collapses Cols/Mobile/Backup into ⋯) |
 | `renderKanbanGenre/Table/Dashboard/Library` | The four view renderers |
 | `renderKanbanCard(container, row, ...)` | Single kanban card |
 | `renderSelectField/makeEditable` | Inline editors |
@@ -72,7 +72,7 @@ Wide modal (~780px) for viewing/editing a full entry. Three sections: header (ti
 | `getFilteredRows()` | Rows matching current search query |
 | `generateMobileFiles()` | Stamps `<folder>/Mobile/<basename>.md` from one of three templates |
 | `deleteWithUndo(row)` | Routes every delete path through a 6s Notice with Undo |
-| `backupToArchive()` | Copies the current xlsx to `Archive/<basename>_YYYY-MM-DD.xlsx` (byte-identical, `readBinary` → `writeBinary`) |
+| `backupToArchive()` | Copies the current csv to `Archive/<basename>_YYYY-MM-DD.csv` (byte-identical, `readBinary` → `writeBinary`) |
 
 The class constructor takes a typed `persistSettings: () => Promise<void>` callback. Previously `saveFileCfg()` reached the plugin via `(app as any).plugins.plugins["csv-card-view"]?.saveSettings()` — brittle and untyped. Now passed explicitly.
 
@@ -80,7 +80,7 @@ The class constructor takes a typed `persistSettings: () => Promise<void>` callb
 Global settings UI.
 
 **`CardViewPlugin extends Plugin`**
-Entry point. Registers view for `csv` and `xlsx`, registers `csv-add` and `csv-refresh` code block processors. `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
+Entry point. Registers view for `csv`, registers `csv-add` and `csv-refresh` code block processors. `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
 
 Key methods:
 - `renderAddEntryForm(source, el, ctx)` — renders the `csv-add` code block as a form. Parses `file:`, reads headers, auto-detects select fields (cols with ≤15 unique values), writes new entries directly to the file. For habit-shape files (file has a date col), pre-fills from existing row matching the date input → submit reads as "Update". Title flips to "Updating ‹date›" and submit button label flips to "Update" (vs "Add") when the date matches.
@@ -174,7 +174,7 @@ Long non-select field values in kanban cards truncate at 40 chars with `…`. Fu
 
 ## Mobile dashboard system
 
-Since mobile Obsidian opens xlsx files natively (as of this codebase — see [handoff.md](../handoff.md#mobile-note)), the mobile dashboards are still the better path for habit logging and read-only browsing because Dataview rendering is cheaper than the full plugin lift.
+Mobile dashboards remain useful for habit logging and read-only browsing because Dataview rendering is cheaper than the full plugin lift, even though the CSV is now natively opened by the plugin on mobile too.
 
 "📱 Mobile" toolbar button stamps `<folder>/Mobile/<basename>.md` from one of three templates in `src/mobile-templates.ts`. Each template returns a complete markdown file with frontmatter (`obsidianUIMode: preview` for the Force View Mode community plugin), one or more `csv-add` / `csv-refresh` / `dataviewjs` blocks. Three template types:
 
@@ -182,17 +182,19 @@ Since mobile Obsidian opens xlsx files natively (as of this codebase — see [ha
 2. **Library** — when category column exists: csv-add form + kanban/table toggle (collapsible genre sections with cards).
 3. **Generic** — fallback: csv-add form + expandable scrollable table (used for dictionary etc.).
 
+Both the `csv-add` write target and the `dataviewjs` read target point at the same canonical CSV. (Pre-migration these were split because xlsx couldn't be read by Dataview directly, so a `_csv_helpers/<file>.csv` mirror was kept in sync on every save. The mirror folder is gone.)
+
 ### csv-add code block
-The plugin registers a `csv-add` markdown code block processor. Renders a labeled form for every column. Auto-detects column types from existing data: cols with ≤15 unique values become dropdowns with a "+ Custom" option. Writes directly to the CSV/XLSX file. For habit-shape files (date col present), `syncFromExisting()` pre-fills the form when the date input matches an existing row; the card gets an `is-updating` class (subtle accent ring + tinted title) and the submit button label flips to "Update".
+The plugin registers a `csv-add` markdown code block processor. Renders a labeled form for every column. Auto-detects column types from existing data: cols with ≤15 unique values become dropdowns with a "+ Custom" option. Writes directly to the CSV file. For habit-shape files (date col present), `syncFromExisting()` pre-fills the form when the date input matches an existing row; the card gets an `is-updating` class (subtle accent ring + tinted title) and the submit button label flips to "Update".
 
 ```csv-add
-file: ../books.xlsx
+file: ../books.csv
 ```
 
 File-path forms (resolved by `resolvePath` in `src/utils.ts`, 9 tests in `test-plugin-logic.mjs`):
-- `books.xlsx` — sibling of the current note
-- `../books.xlsx` / `../../foo.csv` — walked up from current folder (clamps at vault root)
-- `Knowledge/Library/books.xlsx` — vault-relative
+- `books.csv` — sibling of the current note
+- `../books.csv` / `../../foo.csv` — walked up from current folder (clamps at vault root)
+- `Knowledge/Library/books.csv` — vault-relative
 
 Generated dashboards always emit the `../` form so the data folder is portable — move the folder anywhere in the vault and dashboards still resolve.
 
@@ -206,19 +208,6 @@ Regressions in any of these are caught by `npm run test:mobile` (simulator runs 
 ⚠️ **Generated `.md` files are NOT the source of truth — `src/mobile-templates.ts` is.** Manual edits get wiped the next time the user clicks "📱 Mobile" or runs `npm run regen:mobile`. Fix bugs in the template, then `npm run build:deploy && npm run regen:mobile && npm run test:mobile` to update + verify.
 
 **Known still-duplicated:** `regenerate-mobile-dashboards.mjs` keeps its own parallel template copy — unifying needs a plain-JS rewrite so both `.ts` (esbuild) and `.mjs` (node) callers can import.
-
-## CSV Helper Architecture
-
-**Source of truth:** XLSX is always the source. CSV is a one-way mirror for Dataview.
-
-**Folder:** `<xlsx-folder>/_csv_helpers/<filename>.csv` — underscore prefix instead of dot to avoid Obsidian's hidden folder indexing issues.
-
-**Sync points:**
-1. Mobile add form (`csv-add`) — reads/writes XLSX directly, then syncs to CSV.
-2. Desktop edits (`doSave()`) — writes XLSX, then syncs to CSV if helper exists.
-3. Duplicate detection — re-reads file before each submit (avoids stale data).
-
-**File ops:** Uses `vault.adapter.exists/mkdir/write` (not `vault.getAbstractFileByPath/createFolder/create`) because Obsidian doesn't index `_csv_helpers` in its file cache.
 
 ## Refactoring status
 

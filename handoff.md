@@ -1,4 +1,4 @@
-# XLSX Card View — Claude Code Handoff
+# CSV Card View — Claude Code Handoff
 
 Lean session pickup. Reference content lives in `docs/`:
 
@@ -12,11 +12,13 @@ This file stays small on purpose so session startup doesn't eat the context wind
 
 ## Session pickup
 
-**Live data location**: `Knowledge/Library/` in the iCloud vault. The five xlsx files (movies, books, quotes, dictionary, habit_tracker) live there. `Mobile/`, `_csv_helpers/`, and `Archive/` are created by the plugin on first click of the respective buttons. The old `Knowledge/Test/` folder is legacy and can be deleted.
+**Live data location**: `Knowledge/Library/` in the iCloud vault. The five canonical CSV files (movies, books, quotes, dictionary, habit_tracker) live there. `Mobile/` and `Archive/` are created by the plugin on first click of the respective buttons. The old `Knowledge/Test/` folder is legacy and can be deleted.
+
+**XLSX support retired** (commit "SWITCH TO CSV AS MAIN"). The plugin is CSV-only — `registerExtensions(["csv"])`, no SheetJS, no `_csv_helpers/` mirror. The migration script (`migrate-xlsx-to-csv.mjs`) preserved the original xlsx files in `Knowledge/Library/Archive/<basename>_pre-csv-migration.xlsx` if anything needs to be recovered. The lossless-ness was verified by `xlsx-to-csv-roundtrip.mjs` (all 10 cell-by-cell checks passed) before any data was touched.
 
 **All dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget if the user moves the folder again.
 
-**Last shipped**: see `git log --oneline -10`. Recent arc has been mobile-iPhone work: pre-fill of habit add-form by date, picker auto-close fix, toolbar overflow, kanban single-column on phones, search-input mobile overflow.
+**Last shipped**: see `git log --oneline -10`. Recent arc has been mobile-iPhone work: pre-fill of habit add-form by date, picker auto-close fix, toolbar overflow, kanban single-column on phones, search-input mobile overflow, then the CSV-only migration.
 
 **Active dev loop**:
 ```
@@ -24,9 +26,7 @@ npm run build:deploy && npm run regen:mobile && npm run test:all
 ```
 Then Cmd+R in Obsidian to reload. Drop `regen:mobile` if no mobile template changed. See [docs/dev-workflow.md](docs/dev-workflow.md) for the full command surface and bench numbers.
 
-**Bundle**: 720 KB minified, lazy-loaded. Startup parse+eval 0.9 ms. SheetJS only initialises when an xlsx is opened; Chart.js only when dashboard renders. `node bench-load.mjs main.js` reproduces.
-
-<a id="mobile-note"></a>**XLSX files now open natively on iPhone Obsidian** — discovered mid-session. Used to be folklore that this was impossible. Most likely it was always API-supported and only the previous eager-loaded SheetJS made the plugin fail-to-register fast enough on mobile webview. Lazy-load + minify tipped it over the threshold. Mobile bugs surface from here; the path was never designed for, so they're worth fixing eagerly as the user reports them.
+**Bundle**: 297 KB minified (down from 720 KB pre-migration — SheetJS removed). Startup parse+eval ~0.7 ms. Chart.js still lazy-loaded for the dashboard view. `node bench-load.mjs main.js` reproduces.
 
 ---
 
@@ -44,7 +44,7 @@ Anything that touches input focus / picker positioning / viewport sizing on mobi
 
 ## Open follow-ups
 
-- **CSV-only architecture (drop XLSX entirely).** User's original reason for xlsx-as-source was that hand-rolled CSV parsing broke on multiline cells. That parser is gone (Papa handles multiline-quoted fields correctly). With XLSX retired we'd shed SheetJS entirely (~700 KB lazy chunk → 0), drop the `_csv_helpers/` mirror complexity, and have one canonical format that Dataview already reads natively on mobile. Real work: convert existing xlsx → csv with a one-off script (preserve stars, quotes-in-quotes, embedded newlines), update `generateMobileFiles` to drop the helper-write path, remove SheetJS code + `loadXLSX` helper, update file-extension registration. Validate byte-stable round-trips for representative rows. Probably 2–3 commits + a normalization script. Big win in bundle size + simplicity.
+- **`XLSXCardView` class name is now misleading** — the class is CSV-only post-migration but still named `XLSXCardView` to avoid spreading rename churn through tests / docs in the migration commit. Rename to `CardView` in a focused follow-up: it's used in `main.ts` (class def + `new XLSXCardView(...)` in `onload`) plus mention-only references in `test-plugin-logic.mjs`, `xlsx-to-csv-roundtrip.mjs`, `docs/architecture.md`, `docs/dev-workflow.md`, `src/mobile-templates.ts`.
 
 - **main.ts at ~2300 lines.** The `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` split is overdue but risky without DOM-level test coverage. Deserves a dedicated session and a minimal regression harness designed first.
 

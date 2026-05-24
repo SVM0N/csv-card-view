@@ -10,6 +10,8 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-toolbar-title` | Both | Filename header; hidden on `max-width: 600px` (redundant with tab) |
 | `.csv-mode-group` | Both | Mode toggle button group |
 | `.csv-cfg-btn` | Both | "⚙ Columns", "📱 Mobile", "💾 Backup" buttons |
+| `.csv-cfg-btn-secondary` | Both | Modifier on the three secondary buttons above — hidden on `max-width: 600px` (collapsed into ⋯ overflow) |
+| `.csv-cfg-btn-overflow` | Both | ⋯ button shown only on `max-width: 600px`; click opens an Obsidian Menu with Columns / Mobile / Backup |
 | `.csv-add-btn` | Both | "+ Add" button |
 | `.csv-row-count` | Toolbar | Entry-count chip; hidden on mobile |
 | `.csv-kanban-board` | Kanban | Horizontal flex container |

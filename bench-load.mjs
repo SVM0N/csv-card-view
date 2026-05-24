@@ -10,8 +10,9 @@
  *
  *   Eval   — time spent executing the bundle's top-level code. For Obsidian
  *            this is the plugin's `onload()` plus every module's top-level
- *            initialiser (SheetJS sets up its lookup tables here, Chart.js
- *            registers default components, etc.).
+ *            initialiser (Chart.js registers default components, etc.). Used
+ *            to be more dramatic when SheetJS was in here too — the
+ *            CSV-only migration retired that ~700 KB lazy chunk.
  *
  * The bundle uses Obsidian APIs and a few globals, so we stub `require` and
  * `module` enough for the file to evaluate without throwing.

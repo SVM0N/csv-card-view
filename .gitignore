@@ -2,10 +2,7 @@ node_modules/
 .DS_Store
 Test/
 
-# Ignore user data files (keep test fixtures)
-/*.xlsx
+# Ignore user data files at project root (sample/scratch copies).
+# xlsx patterns kept post-migration in case someone drops one in for testing.
 /*.csv
-books.xlsx
-dictionary.xlsx
-movies.xlsx
-quotes.xlsx
+/*.xlsx

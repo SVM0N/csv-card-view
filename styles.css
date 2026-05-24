@@ -71,11 +71,18 @@
   row-gap: 8px;
 }
 
+/* Overflow ⋯ button is mobile-only — hidden by default, shown via the
+   mobile media query below. Secondary buttons (⚙ / 📱 / 💾) flip the
+   other direction. Both buttons exist in the DOM at all times so the
+   layout responds to window resize / orientation flips without re-render. */
+.csv-cfg-btn-overflow { display: none; }
+
 /* Mobile: hide the filename title (already in the tab) and let the search
    bar shrink so the action buttons don't get pushed off-screen. */
 @media (max-width: 600px) {
   .csv-toolbar-title { display: none; }
-  .csv-toolbar { padding: 8px 12px; }
+  .csv-toolbar { padding: 8px 12px; gap: 8px; }
+  .csv-toolbar-controls { gap: 6px; }
   /* `!important` here defeats the desktop `.csv-search-input:focus { width:220px }`
      rule which otherwise wins on specificity and forces the input wider than
      its mobile wrap (overflowing the toolbar). On phones we want the input
@@ -85,6 +92,21 @@
   /* Toolbar buttons go icon-tight on mobile */
   .csv-cfg-btn, .csv-add-btn { padding: 6px 10px; font-size: 12px; }
   .csv-row-count { display: none; }
+  /* Collapse the three secondary actions into the ⋯ overflow menu. */
+  .csv-cfg-btn-secondary { display: none; }
+  .csv-cfg-btn-overflow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    padding: 6px 10px;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  /* Mode group: slightly tighter so all three modes fit comfortably on
+     iPhone widths without wrapping mid-row. */
+  .csv-mode-btn { padding: 4px 8px; font-size: 11px; }
 }
 
 .csv-row-count {
@@ -2640,3 +2662,75 @@ select.csv-add-row-control {
 }
 .csv-notice-undo:hover { background: var(--background-modifier-hover); }
 .csv-notice-undo[disabled] { opacity: 0.4; cursor: default; }
+
+/* ─── Mobile compact density ──────────────────────────────────────────────────
+   On phone-width viewports the Library / Kanban / Table cards mirror the
+   mobile-md dashboard's compact card style: tighter padding, smaller type,
+   2-column Library grid. Pure CSS — no state to persist. If the user wants
+   a manual toggle later, layer a `.csv-density-compact` class on the root
+   and reuse these rules.
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Content area: tighter outer padding so cards have more room to breathe. */
+  .csv-content-area { padding: 12px; }
+
+  /* — Library: 2-col compact grid (matches mobile-md `compact` layout) — */
+  .csv-library-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 6px 0 2px;
+  }
+  .csv-library-card {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+  .csv-library-card-title {
+    font-size: 13px;
+    line-height: 1.3;
+    margin-bottom: 3px;
+    /* Allow long titles to wrap cleanly inside the narrower card. */
+    word-break: break-word;
+  }
+  .csv-library-card-meta { font-size: 11px; margin-bottom: 4px; }
+  .csv-library-card-rating { font-size: 11px; margin-bottom: 4px; letter-spacing: 1px; }
+  .csv-library-card-tags { margin-top: 6px; gap: 3px; }
+  .csv-library-card-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+  }
+  .csv-library-filters { gap: 6px; flex-wrap: wrap; }
+  .csv-library-filter-select { flex: 1 1 110px; min-width: 0; font-size: 12px; }
+  .csv-library-search { flex: 1 1 100%; font-size: 12px; }
+  .csv-library-section-header { padding: 6px 4px; font-size: 12px; }
+
+  /* — Kanban: tighter cards inside each swipe-snap column — */
+  .csv-kanban-col-body { padding: 8px; gap: 6px; }
+  .csv-kanban-card { padding: 8px 10px; }
+  .csv-kanban-card-title { font-size: 13px; }
+  .csv-kanban-card-sub { font-size: 11px; margin-bottom: 6px; }
+  .csv-kanban-card-meta { gap: 4px; }
+  .csv-kanban-chip { font-size: 11px; padding: 1px 6px; }
+  /* Hide the per-card secondary buttons on touch — context menu (long-press
+     / right-click) already exposes Open notes / Expand. */
+  .csv-kanban-card-btns { display: none; }
+  /* Inline notes preview reads tighter inside the smaller card. */
+  .csv-kanban-notes-preview { font-size: 11px; -webkit-line-clamp: 2; }
+
+  /* — Table: comfortable on phone widths — */
+  .csv-table { font-size: 12px; }
+  .csv-table th {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  .csv-table td {
+    padding: 6px 8px;
+    min-width: 110px;
+    max-width: 220px;
+  }
+  .csv-table td.csv-table-notes-cell {
+    min-width: 140px;
+    max-width: 220px;
+    font-size: 11px;
+  }
+}

@@ -3,7 +3,7 @@
  *
  * Why this exists: clicking "📱 Mobile" in Obsidian regenerates dashboards from
  * the plugin's templates, but that requires reloading Obsidian after each plugin
- * build and clicking the button on every XLSX file. This script does the same
+ * build and clicking the button on every CSV file. This script does the same
  * thing headlessly — useful for CI, for syncing all dashboards after a template
  * change, and for `test-mobile-dashboards.mjs` to verify against fresh files.
  *
@@ -19,8 +19,7 @@ import path from "node:path";
 import Papa from "papaparse";
 
 const VAULT = "/Users/simon/Library/Mobile Documents/iCloud~md~obsidian/Documents/Brain";
-const TEST_DIR = "Knowledge/Library";
-const HELPERS_REL = `${TEST_DIR}/_csv_helpers`;
+const LIB = "Knowledge/Library";
 
 // ---------------------------------------------------------------------------
 // Column resolvers (mirror main.ts)
@@ -328,40 +327,39 @@ if (!csvData || !csvData.length) {
 // Dispatcher
 // ---------------------------------------------------------------------------
 
-const TARGETS = [
-  { xlsxBase: "books",         fileName: "books.xlsx" },
-  { xlsxBase: "movies",        fileName: "movies.xlsx" },
-  { xlsxBase: "quotes",        fileName: "quotes.xlsx" },
-  { xlsxBase: "dictionary",    fileName: "dictionary.xlsx" },
-  // habit_tracker has a date column and uses the habit template, which is unchanged.
-  // Skip it here — the user can regenerate via the Obsidian button if needed.
-];
+const TARGETS = ["books", "movies", "quotes", "dictionary"];
+// habit_tracker has a date column → uses the habit template (unchanged).
+// Skip here; regenerate via the Obsidian button if needed.
 
-const MOBILE_DIR_REL = `${TEST_DIR}/Mobile`;
+const MOBILE_DIR_REL = `${LIB}/Mobile`;
 const mobileAbs = path.join(VAULT, MOBILE_DIR_REL);
 if (!fs.existsSync(mobileAbs)) fs.mkdirSync(mobileAbs, { recursive: true });
 
 let written = 0;
-for (const t of TARGETS) {
-  const csvPath = `${HELPERS_REL}/${t.xlsxBase}.csv`;
+for (const base of TARGETS) {
+  // Post-migration: the canonical CSV lives next to the dashboard's parent
+  // folder. csvPath (for dataviewjs read) and filePath (for csv-add write)
+  // both resolve to the same file — used to be split because xlsx needed
+  // a _csv_helpers/ mirror for Dataview.
+  const csvPath = `${LIB}/${base}.csv`;
   const absCsv = path.join(VAULT, csvPath);
   if (!fs.existsSync(absCsv)) {
-    console.log(`· skip ${t.xlsxBase}: helper CSV not found at ${csvPath}`);
+    console.log(`· skip ${base}: csv not found at ${csvPath}`);
     continue;
   }
   const raw = fs.readFileSync(absCsv, "utf8");
   const parsed = Papa.parse(raw, { header: true, skipEmptyLines: true });
   const headers = parsed.meta.fields;
   // "../" so csv-add (which resolves relative to the dashboard's folder,
-  // Mobile/) finds the xlsx in the parent folder. Stays valid if the user
-  // later moves the parent folder anywhere in the vault.
-  const filePath = `../${t.fileName}`;
+  // Mobile/) finds the data file in the parent folder. Stays valid if the
+  // user later moves the parent folder anywhere in the vault.
+  const filePath = `../${base}.csv`;
 
   let content;
   const cCol = categoryCol(headers);
   const dCol = dateCol(headers);
   if (dCol) {
-    console.log(`· skip ${t.xlsxBase}: has date column (regenerate habit dashboard via Obsidian)`);
+    console.log(`· skip ${base}: has date column (regenerate habit dashboard via Obsidian)`);
     continue;
   } else if (cCol) {
     const sCol = statusCol(headers) ?? "Status";
@@ -384,10 +382,10 @@ for (const t of TARGETS) {
     content = genericTemplate({ filePath, csvPath, headers });
   }
 
-  const outPath = path.join(mobileAbs, `${t.xlsxBase}.md`);
+  const outPath = path.join(mobileAbs, `${base}.md`);
   fs.writeFileSync(outPath, content);
   const kind = cCol ? "library" : "generic";
-  console.log(`✓ wrote Mobile/${t.xlsxBase}.md  (${kind}, titleKey="${titleKey(headers)}")`);
+  console.log(`✓ wrote Mobile/${base}.md  (${kind}, titleKey="${titleKey(headers)}")`);
   written++;
 }
 

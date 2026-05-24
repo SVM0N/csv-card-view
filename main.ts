@@ -14,11 +14,9 @@ import {
   normalizePath,
 } from "obsidian";
 import Papa from "papaparse";
-// Type-only imports — erased at compile time, no runtime cost. The actual
-// modules are loaded on demand via `loadXLSX` / `loadChart` below so the
-// plugin enables without paying SheetJS's lookup-table init (~hundreds of
-// KB of bytecode + execution) or Chart.js's component registration.
-import type * as XLSXType from "xlsx";
+// Type-only import — erased at compile time, no runtime cost. The actual
+// module is loaded on demand via `loadChart` below so the plugin enables
+// without paying Chart.js's component registration up front.
 import type { Chart as ChartType } from "chart.js";
 
 // Import from src modules
@@ -30,14 +28,6 @@ import {
   generateLibraryMobileDashboard as libraryMobileTemplate,
   generateGenericMobileDashboard as genericMobileTemplate,
 } from "./src/mobile-templates";
-
-// Lazy-load SheetJS — only paid when an .xlsx is actually read or written.
-// Cached after first call so subsequent loads are free.
-let xlsxModule: typeof XLSXType | null = null;
-async function loadXLSX(): Promise<typeof XLSXType> {
-  if (!xlsxModule) xlsxModule = await import("xlsx");
-  return xlsxModule;
-}
 
 // Lazy-load Chart.js + register the bits we use. Only paid when the dashboard
 // view first renders. Sessions that only touch books/movies/quotes/dictionary
@@ -60,7 +50,6 @@ export class XLSXCardView extends FileView {
   rows: CSVRow[] = [];
   mode: ViewMode;
   private renderComponent: Component;
-  private isXlsx = false;
   private saveTimer: number | null = null;
   private searchQuery: string = "";
   // Callback into the plugin to persist `settings` to data.json.
@@ -85,29 +74,11 @@ export class XLSXCardView extends FileView {
   // ── File I/O ───────────────────────────────────────────────────────────────
 
   async onLoadFile(file: TFile): Promise<void> {
-    this.isXlsx = file.extension === "xlsx";
     try {
-      if (this.isXlsx) {
-        const XLSX = await loadXLSX();
-        const buf = await this.app.vault.readBinary(file);
-        const wb = XLSX.read(buf, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-        if (!raw.length) { this.headers = []; this.rows = []; }
-        else {
-          this.headers = (raw[0] as string[]).map(String);
-          this.rows = raw.slice(1).map(r => {
-            const row: CSVRow = {};
-            this.headers.forEach((h, i) => { row[h] = String((r as string[])[i] ?? ""); });
-            return row;
-          });
-        }
-      } else {
-        const text = await this.app.vault.read(file);
-        const parsed = parseCSV(text);
-        this.headers = parsed.headers;
-        this.rows = parsed.rows;
-      }
+      const text = await this.app.vault.read(file);
+      const parsed = parseCSV(text);
+      this.headers = parsed.headers;
+      this.rows = parsed.rows;
     } catch (e) {
       console.error("CardView load error", e);
       this.headers = []; this.rows = [];
@@ -149,27 +120,8 @@ export class XLSXCardView extends FileView {
   private async doSave(): Promise<void> {
     if (!this.file) return;
     try {
-      if (this.isXlsx) {
-        const XLSX = await loadXLSX();
-        const wb = XLSX.utils.book_new();
-        const data = [this.headers, ...this.rows.map(r => this.headers.map(h => r[h] ?? ""))];
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-        const buf: ArrayBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-        await this.app.vault.modifyBinary(this.file, buf);
-
-        // Also sync to CSV helper file if it exists (use adapter for helper folder)
-        const csvFolder = this.file.parent?.path ?? "";
-        const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
-        const csvPath = `${helperFolder}/${this.file.basename}.csv`;
-        if (await this.app.vault.adapter.exists(csvPath)) {
-          const csvContent = Papa.unparse(this.rows, { columns: this.headers });
-          await this.app.vault.adapter.write(csvPath, csvContent);
-        }
-      } else {
-        const csv = Papa.unparse(this.rows, { columns: this.headers });
-        await this.app.vault.modify(this.file, csv);
-      }
+      const csv = Papa.unparse(this.rows, { columns: this.headers });
+      await this.app.vault.modify(this.file, csv);
     } catch (e) {
       console.error("CardView save error", e);
       // Surface — the debounced save is invisible, so a permission / iCloud
@@ -540,25 +492,42 @@ export class XLSXCardView extends FileView {
       });
     }
 
-    // Per-file column config
-    const cfgBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "⚙ Columns", title: "Configure columns for this file" });
-    cfgBtn.addEventListener("click", () => {
+    // Secondary actions — rendered as three explicit buttons on desktop,
+    // collapsed into a single ⋯ overflow menu on phones (CSS toggles
+    // visibility via .csv-cfg-btn-secondary / .csv-cfg-btn-overflow).
+    // Handlers are defined once and reused by both surfaces so there's a
+    // single place to maintain behaviour.
+    const openColumns = () => {
       new FileConfigModal(this.app, this.headers, this.file?.path ?? "", this.fileCfg, this.autoDetectBooleanColumns(), (cfg) => {
         this.saveFileCfg(cfg);
         if (cfg.defaultMode) this.mode = cfg.defaultMode;
         this.renderView();
       }).open();
-    });
+    };
+    const openMobile = () => this.generateMobileFiles();
+    const openBackup = () => this.backupToArchive();
 
-    // Mobile dashboard button (works for all file types)
-    const mobileBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "📱 Mobile", title: "Generate mobile dashboard with add form" });
-    mobileBtn.addEventListener("click", () => this.generateMobileFiles());
-
-    // Backup button — copies the current xlsx to Archive/<basename>_<date>.xlsx
-    const backupBtn = ctrl.createEl("button", { cls: "csv-cfg-btn", text: "💾 Backup", title: "Copy this file to Archive/ with today's date" });
-    backupBtn.addEventListener("click", () => this.backupToArchive());
+    ctrl.createEl("button", { cls: "csv-cfg-btn csv-cfg-btn-secondary", text: "⚙ Columns", title: "Configure columns for this file" })
+      .addEventListener("click", openColumns);
+    ctrl.createEl("button", { cls: "csv-cfg-btn csv-cfg-btn-secondary", text: "📱 Mobile", title: "Generate mobile dashboard with add form" })
+      .addEventListener("click", openMobile);
+    ctrl.createEl("button", { cls: "csv-cfg-btn csv-cfg-btn-secondary", text: "💾 Backup", title: "Copy this file to Archive/ with today's date" })
+      .addEventListener("click", openBackup);
 
     ctrl.createEl("button",{cls:"csv-add-btn",text:"+ Add"}).addEventListener("click",()=>this.openAddModal());
+
+    // ⋯ overflow lives after + Add so on mobile (where the secondary buttons
+    // are hidden) the row reads `[modes] [search] [+ Add] [⋯]` — the primary
+    // action stays adjacent to the input, with the menu as the rightmost
+    // catch-all. On desktop this button is display:none, so + Add is last.
+    const overflowBtn = ctrl.createEl("button", { cls: "csv-cfg-btn csv-cfg-btn-overflow", text: "⋯", title: "More actions" });
+    overflowBtn.addEventListener("click", (e) => {
+      const menu = new Menu();
+      menu.addItem(i => i.setTitle("Columns").setIcon("settings").onClick(openColumns));
+      menu.addItem(i => i.setTitle("Mobile dashboard").setIcon("smartphone").onClick(openMobile));
+      menu.addItem(i => i.setTitle("Backup").setIcon("save").onClick(openBackup));
+      menu.showAtMouseEvent(e);
+    });
   }
 
   // ── Archive backup ──────────────────────────────────────────────────────────
@@ -1177,26 +1146,17 @@ export class XLSXCardView extends FileView {
     }
     const dashboardPath = `${mobileFolder}/${this.file.basename}.md`;
 
-    // For XLSX files, export a CSV copy to helper folder for Dataview
-    let csvPath = this.file.path;
-    if (this.isXlsx) {
-      const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
-      csvPath = `${helperFolder}/${this.file.basename}.csv`;
-
-      // Create helper folder and CSV using adapter (helper folder not indexed by vault)
-      if (!await this.app.vault.adapter.exists(helperFolder)) {
-        await this.app.vault.adapter.mkdir(helperFolder);
-      }
-      const csvContent = Papa.unparse(this.rows, { columns: this.headers });
-      await this.app.vault.adapter.write(csvPath, csvContent);
-    }
+    // Single canonical CSV path — both csv-add (write) and dataviewjs (read)
+    // point at the same file. (Pre-migration the read path went through a
+    // _csv_helpers/ mirror because the source was xlsx; that's gone now.)
+    const csvPath = this.file.path;
 
     // Determine file type (habit tracker vs library)
     const dateCol = this.getDateCol();
     const categoryCol = this.getCategoryCol();
     // Note-relative path so `csv-add file:` still resolves if the parent
     // folder is moved or renamed (the dashboard lives one folder deeper
-    // than the xlsx, under Mobile/).
+    // than the data file, under Mobile/).
     const filePath = "../" + this.file.name;
 
     let dashboardContent: string;
@@ -1825,7 +1785,7 @@ export default class CardViewPlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.registerView(CARD_VIEW_TYPE, leaf=>new XLSXCardView(leaf, this.settings, () => this.saveSettings()));
-    this.registerExtensions(["csv","xlsx"], CARD_VIEW_TYPE);
+    this.registerExtensions(["csv"], CARD_VIEW_TYPE);
     this.addSettingTab(new CardViewSettingTab(this.app, this));
 
     // Register csv-add code block for mobile entry
@@ -1834,12 +1794,12 @@ export default class CardViewPlugin extends Plugin {
     });
 
     // Migrate per-file config keys when the user renames or moves a
-    // tracked xlsx/csv inside Obsidian. Without this, `fileConfigs[oldPath]`
+    // tracked csv inside Obsidian. Without this, `fileConfigs[oldPath]`
     // (cardFields, categoryColumn, defaultMode, etc.) is orphaned and the
     // file silently reverts to auto-detected defaults.
     this.registerEvent(this.app.vault.on("rename", async (file, oldPath) => {
       if (!(file instanceof TFile)) return;
-      if (file.extension !== "csv" && file.extension !== "xlsx") return;
+      if (file.extension !== "csv") return;
       if (!this.settings.fileConfigs[oldPath]) return;
       migrateFileConfigKey(this.settings.fileConfigs, oldPath, file.path);
       await this.saveSettings();
@@ -1890,11 +1850,11 @@ export default class CardViewPlugin extends Plugin {
     }
 
     // Resolve path relative to current note. Three forms accepted:
-    //   "books.xlsx"                          → sibling of current note
-    //   "../books.xlsx" or "../../foo.xlsx"   → walked up from current folder
-    //   "Knowledge/Test/books.xlsx"           → vault-relative (any path containing
-    //                                            "/" without a leading ".." is treated
-    //                                            as vault-relative for back-compat)
+    //   "books.csv"                         → sibling of current note
+    //   "../books.csv" or "../../foo.csv"   → walked up from current folder
+    //   "Knowledge/Library/books.csv"       → vault-relative (any path containing
+    //                                          "/" without a leading ".." is treated
+    //                                          as vault-relative for back-compat)
     const currentFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     const baseFolder = currentFile?.parent?.path ?? "";
     const fullPath = resolvePath(filePath, baseFolder);
@@ -1908,29 +1868,12 @@ export default class CardViewPlugin extends Plugin {
     // Read the file to get headers
     let headers: string[] = [];
     let rows: CSVRow[] = [];
-    const isXlsx = file.extension === "xlsx";
 
     try {
-      if (isXlsx) {
-        const XLSX = await loadXLSX();
-        const buf = await this.app.vault.readBinary(file);
-        const wb = XLSX.read(buf, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-        if (raw.length) {
-          headers = (raw[0] as string[]).map(String);
-          rows = raw.slice(1).map(r => {
-            const row: CSVRow = {};
-            headers.forEach((h, i) => { row[h] = String((r as string[])[i] ?? ""); });
-            return row;
-          });
-        }
-      } else {
-        const text = await this.app.vault.read(file);
-        const parsed = parseCSV(text);
-        headers = parsed.headers;
-        rows = parsed.rows;
-      }
+      const text = await this.app.vault.read(file);
+      const parsed = parseCSV(text);
+      headers = parsed.headers;
+      rows = parsed.rows;
     } catch (e) {
       el.createEl("p", { text: `Error reading file: ${e}`, cls: "csv-add-error" });
       return;
@@ -2164,23 +2107,8 @@ export default class CardViewPlugin extends Plugin {
       // Re-read file to get latest data (avoids stale data issues)
       let currentRows: CSVRow[] = [];
       try {
-        if (isXlsx) {
-          const XLSX = await loadXLSX();
-          const buf = await this.app.vault.readBinary(file);
-          const wb = XLSX.read(buf, { type: "array" });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-          if (raw.length) {
-            currentRows = raw.slice(1).map(r => {
-              const row: CSVRow = {};
-              headers.forEach((h, i) => { row[h] = String((r as string[])[i] ?? ""); });
-              return row;
-            });
-          }
-        } else {
-          const text = await this.app.vault.read(file);
-          currentRows = parseCSV(text).rows;
-        }
+        const text = await this.app.vault.read(file);
+        currentRows = parseCSV(text).rows;
       } catch (e) {
         new Notice(`Error reading file: ${e}`);
         return;
@@ -2217,34 +2145,8 @@ export default class CardViewPlugin extends Plugin {
       // `rows` from the form-render scope. Removed so the post-submit
       // re-sync can mutate the outer array via the captured reference.)
       try {
-        // Save to main file (XLSX or CSV)
-        if (isXlsx) {
-          const XLSX = await loadXLSX();
-          const ws = XLSX.utils.json_to_sheet(currentRows.map(r => {
-            const obj: Record<string, string> = {};
-            headers.forEach(h => { obj[h] = r[h] ?? ""; });
-            return obj;
-          }), { header: headers });
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-          const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-          await this.app.vault.modifyBinary(file, buf);
-
-          // Also update the CSV helper file for Dataview
-          const csvFolder = file.parent?.path ?? "";
-          const helperFolder = csvFolder ? `${csvFolder}/_csv_helpers` : "_csv_helpers";
-          const csvPath = `${helperFolder}/${file.basename}.csv`;
-
-          // Ensure helper folder exists and write CSV (use adapter for helper folder)
-          if (!await this.app.vault.adapter.exists(helperFolder)) {
-            await this.app.vault.adapter.mkdir(helperFolder);
-          }
-          const csvContent = Papa.unparse(currentRows, { columns: headers });
-          await this.app.vault.adapter.write(csvPath, csvContent);
-        } else {
-          const csv = Papa.unparse(currentRows, { columns: headers });
-          await this.app.vault.modify(file, csv);
-        }
+        const csv = Papa.unparse(currentRows, { columns: headers });
+        await this.app.vault.modify(file, csv);
 
         new Notice(isUpdate ? `Updated entry for ${newRow[dateCols[0]] || ""}` : `Added entry to ${file.basename}`);
 
