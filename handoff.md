@@ -6,7 +6,7 @@
 
 **All paths in the dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget again if the user moves the folder once more.
 
-**Last shipped (commit `5caea8b`)**: picker arrow-key nav + Enter to commit. Capped a 14-commit session ("What else can we improve?") that ran four themes — stability quick-wins, perf, UX polish, and an honest before/after benchmark. 115 tests green (88 logic + 21 mobile + 6 csv). See **2026-05-23 session arc** below for the full breakdown.
+**Last shipped (commit `ae9fd40`)**: extracted mobile-dashboard templates to `src/mobile-templates.ts` (main.ts down 358 lines). Capped a 18-commit session ("What else can we improve?") that ran four themes — stability quick-wins, perf, UX polish, and one targeted refactor. 115 tests green (88 logic + 21 mobile + 6 csv). See **2026-05-23 session arc** below for the full breakdown.
 
 **Active dev loop**:
 ```
@@ -58,6 +58,10 @@ Theme: every visible affordance should do what it advertises, or stop advertisin
 - `2909347` **feat: friendly empty states for empty files.** "Empty or unreadable file." → distinguished into "This file is empty" (no headers) and "No entries yet" (headers but no rows, with a "+ Add the first entry" CTA + a hint listing detected columns).
 - `010cb41` **feat: right-click parity across kanban, library, and table.** Previously only kanban had a context menu. One shared `openRowContextMenu` helper now backs all three views: Open notes file, Open entry, Mark as: <each non-current status>, Delete (uses the new undo flow).
 - `5caea8b` **feat(picker): arrow-key navigation + Enter to commit.** Typing in search narrowed the list but committing still required mousing. Now ↓/↑ wraps, Enter commits the cursor's pick, cursor resets to first match each filter change, scrollIntoView keeps it visible. Same `--hover` class for keyboard + mouse so the visual is consistent.
+- `0627759` **fix(table): readable column widths + clamp tall cells.** Two screenshot-visible problems. (1) Columns squeezed to ~50px with many headers, so long words like book titles broke character-by-character vertically. Cause: `word-break: break-word` permits in-word breaks. Now `overflow-wrap: break-word` + `min-width: 160px` per cell. The table wrapper x-scrolls if there isn't room for every column at min width. (2) A single very long title would expand its row to 20+ lines. Now cells clamp to ~7.5em (5-6 wrapped lines); a soft bottom-fade appears only when content actually overflows (measured at render-time via a single `requestAnimationFrame` pass that flags `.csv-cell--clipped`). Long cells (>80 chars) also set `title=` so hover shows the full content.
+
+### Refactor (1 commit)
+- `ae9fd40` **refactor: extract mobile-dashboard templates to src/mobile-templates.ts.** The three `generate*MobileDashboard` methods were ~410 lines of stringified dataviewjs inside main.ts — no syntax highlight, no isolated test surface, no typing. Now in their own file as pure functions taking explicit option objects. Behaviour byte-identical (template strings copy-pasted verbatim, only `${this.foo}` → `${opts.foo}` substitutions, all column resolution moved up into `generateMobileFiles`). main.ts: 2585 → 2227 lines. The mobile simulator runs the dataviewjs body against real CSVs so any drift would have failed tests. **Known still-duplicated**: the regen-script keeps its own parallel template copy — unifying it needs a plain-JS rewrite so both .ts (esbuild) and .mjs (node) callers can import.
 
 ### Two patterns worth carrying forward
 1. **Measure before the perf claim.** Lazy-loading SheetJS sounds obviously good, but the bench showed bundle GROWING +47KB minified (async wrappers cost something) before the eval win (3.3 → 0.9 ms) made the trade clearly worth it. Without numbers the trade would have been invisible. `bench-load.mjs` is checked in — use it next time someone proposes a refactor that "should be faster."
@@ -88,8 +92,8 @@ This codebase started the session as a working Obsidian plugin with a brittle mo
 - ~~`fileConfigs` keys don't follow renames~~ — fixed 2026-05-23 (commit `d67a667`).
 - Mobile folder structure could be configurable (currently hardcoded `Mobile/` sibling).
 - Multi-value select for Category — picker sets a single string today.
-- **Mobile dashboard templates still inline as TS template literals** (~600 lines across three `generate*MobileDashboard` methods). Extracting to `.txt` files loaded via esbuild would give real syntax highlighting and remove the regen-script's parallel copy. Stable + tested today, lower priority.
-- **main.ts back to 2585 lines.** The handoff's `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` split plan is overdue. Risky enough that it deserves a dedicated session rather than a tail-end commit.
+- ~~Mobile dashboard templates inline as TS template literals~~ — fixed 2026-05-23 (commit `ae9fd40`). The regen-script still has a parallel copy though — eliminating that needs a plain-JS rewrite of the template functions so node can import them without esbuild.
+- **main.ts at 2227 lines** (was 2585 — template extraction took 358 off the top). The handoff's `src/view/{toolbar,table,kanban,dashboard,library}.ts` split plan is still overdue. Risky without DOM-level test coverage; deserves a dedicated session and a plan for a minimal regression harness before splitting.
 
 ---
 
@@ -106,13 +110,14 @@ An Obsidian plugin that opens `.csv` and `.xlsx` files as a kanban, table, or da
 
 ```
 csv-card-view/
-├── main.ts              # Main plugin source (~2585 lines) - XLSXCardView, Settings, Plugin
+├── main.ts              # Main plugin source (~2227 lines) - XLSXCardView, Settings, Plugin
 ├── main.js              # Compiled output — do not edit directly (now minified ~720KB)
 ├── bench-load.mjs       # Measures bundle parse/eval cost; run after big refactors
 ├── src/
 │   ├── types.ts         # Types, interfaces, DEFAULT_SETTINGS (~40 lines)
 │   ├── utils.ts         # Utility functions, parseCSV (Papa), migrateFileConfigKey (~280 lines)
-│   └── modals.ts        # Modal classes (~420 lines)
+│   ├── modals.ts        # Modal classes (~420 lines)
+│   └── mobile-templates.ts  # Three dashboard template functions (~440 lines)
 ├── styles.css           # All plugin CSS (~2555 lines)
 ├── manifest.json        # Obsidian plugin manifest (id: csv-card-view)
 ├── package.json         # deps: xlsx (SheetJS), chart.js, esbuild, obsidian types
