@@ -6,7 +6,9 @@
 
 **All paths in the dev scripts already point at the new location** — `test-mobile-dashboards.mjs`, `regenerate-mobile-dashboards.mjs`, `normalize-stars.mjs`, `normalize-watched.mjs`. Search/replace `Knowledge/Library/` to retarget again if the user moves the folder once more.
 
-**Last shipped (commit `ae9fd40`)**: extracted mobile-dashboard templates to `src/mobile-templates.ts` (main.ts down 358 lines). Capped a 18-commit session ("What else can we improve?") that ran four themes — stability quick-wins, perf, UX polish, and one targeted refactor. 115 tests green (88 logic + 21 mobile + 6 csv). See **2026-05-23 session arc** below for the full breakdown.
+**Last shipped (commit `9d5e81c`)**: captured the CSV-only migration as the next big-leverage move (see Open follow-ups). Preceded by three mobile fixes from real iOS usage + a habit-tracker pre-fill feature. Total 22 commits across this session arc spanning two days. 115 tests green throughout (88 logic + 21 mobile + 6 csv). See the dated session sections below for the full breakdown.
+
+**XLSX files now open natively on iPhone Obsidian** — the user discovered this works as of this session. The handoff used to say "tapping a binary file opens the system share dialog on mobile, custom views aren't supported." That was folklore. Most likely it was always API-supported and only the previous bundle's heavy eager-loaded SheetJS made the plugin fail-to-register fast enough on mobile webview. Lazy-load + minify (commits `1150c9e`, `41a45d8`) probably tipped it over the threshold. Mobile bugs surface from there; address them when reported because no one designed for this path originally (touch targets, viewport widths, keyboard behaviour).
 
 **Active dev loop**:
 ```
@@ -19,6 +21,12 @@ npm run build:deploy && npm run regen:mobile && npm run test:all
 **Watch mode** is unminified with inline sourcemaps (`npm run dev`); only production builds (`npm run build` / `build:deploy`) minify. So devtools in Obsidian is readable during dev.
 
 **`fileConfigs` keys now follow renames/deletes** — the longstanding orphan-on-rename gotcha is fixed via a `vault.on("rename")` / `vault.on("delete")` hook. Old `Knowledge/Test/...` entries in your live `data.json` may still be orphaned from before the fix — hand-edit if you want them back; otherwise auto-detection runs from scratch.
+
+**Mobile-specific gotchas to know about** (any code that touches input focus / picker positioning needs to reckon with these):
+- Focusing an input on iOS pops the virtual keyboard → fires `resize`. Avoid dismissing UI on resize (or detect `matchMedia("(pointer: coarse)")` and skip). The picker's scroll/resize listeners are gated this way in `src/utils.ts:showSelectPicker`.
+- The csv-add form's `date` input does NOT pre-fill from existing data for non-habit shapes. For habit shapes (file has a date column), it does (commit `0e0c951`).
+- Toolbar uses `flex-wrap: wrap` + a `@media (max-width: 600px)` block that hides the filename title and row-count chip to keep action buttons visible.
+- By-genre kanban uses CSS scroll-snap on mobile so each column is exactly `100vw - 60px` and swipe lands cleanly on the next one.
 
 ---
 
@@ -66,6 +74,26 @@ Theme: every visible affordance should do what it advertises, or stop advertisin
 ### Two patterns worth carrying forward
 1. **Measure before the perf claim.** Lazy-loading SheetJS sounds obviously good, but the bench showed bundle GROWING +47KB minified (async wrappers cost something) before the eval win (3.3 → 0.9 ms) made the trade clearly worth it. Without numbers the trade would have been invisible. `bench-load.mjs` is checked in — use it next time someone proposes a refactor that "should be faster."
 2. **One affordance per action.** Every commit in the UX block deleted ceremony around something that already worked. The principle is consistent: if the user can click the thing, don't put a button next to it that does the same thing. Keep one obvious affordance and make it visually discoverable (hover-tint, `cursor`, placeholder text).
+
+---
+
+## 2026-05-24 mobile feedback cycle
+
+User came back having tested the previous day's changes, made a discovery worth its own headline (**xlsx files now open natively on iPhone Obsidian**, see session pickup), and reported three live bugs from actual phone use plus a feature request.
+
+### Mobile bug fixes (1 commit, three issues)
+- `3a169bb` **fix(mobile): picker auto-close, toolbar overflow, kanban single-column.**
+  - **Picker auto-close.** In the NoteExpander, tapping an already-filled select chip showed the menu for a frame, then it dismissed. Same root cause locked up the app when tapping a dropdown in table view (rapid open/close loop). Direct regression from the prior day's `d81bccd` (dismiss-on-scroll/resize) — on iOS, focusing the picker's search input pops the virtual keyboard which fires `resize`, which dismissed. Fix: detect `matchMedia("(pointer: coarse)")` and skip the scroll/resize listeners on touch. Outside-tap and Escape still dismiss. The desktop floating-detached-anchor bug those listeners were originally added to fix doesn't apply on mobile because there's no decoupled-from-input scrolling.
+  - **Toolbar overflow.** Buttons spilled off the right edge on a 390px iPhone screen — Mobile, Backup, +Add weren't visible. Cause: `flex-shrink: 0` on the toolbar items and no wrap. Fix: `flex-wrap: wrap` on `.csv-toolbar` and `.csv-toolbar-controls`. `@media (max-width: 600px)` block hides the filename title (redundant with tab header) and the row-count chip, lets the search input flex to fill remaining width.
+  - **By-genre kanban awkward on mobile.** Desktop columns (260–300px) showed 1.5-columns side-by-side on phones — the half-visible column was unreadable. Fix: CSS scroll-snap (`scroll-snap-type: x mandatory` + `scroll-snap-align: start`) plus a phone-only sizing of columns to `calc(100vw - 60px)` so one column reads full-width and a swipe brings the next.
+
+### Feature: habit-tracker pre-fill (1 commit)
+- `0e0c951` **feat(mobile): csv-add pre-fills from existing row by date.** Previously the mobile add form was always blank, so updating today's habits looked identical to creating a fresh entry — easy to wipe an existing day's notes by tabbing through empty fields. Now: when the date input matches an existing row in the file, the form pre-fills binary toggles, text/select fields, and notes textarea from that row. Card title flips to "Updating <date>" instead of "New entry" so the user sees the intent. Changing the date re-syncs. After submit, habit shape re-syncs (keeps just-saved state visible); library/generic shape keeps the existing "clear for next entry" behavior since those sessions add many distinct entries. Required dropping a local `const rows = currentRows` shadow inside the submit handler so the post-submit re-sync mutates the outer `rows` that `syncFromExisting` captured.
+
+### Notes for next session
+- **Docs commit** `9d5e81c` captured the CSV-only architecture migration in handoff (drop XLSX entirely). User explicitly raised it — the original "xlsx because multiline CSVs broke" trade-off no longer applies after the Papa swap. See Open follow-ups below for the full scope.
+- **User is now actively using the plugin on iPhone**. Real-user feedback flow established. Mobile bugs will continue to surface as they're hit — they're worth fixing eagerly because the path was never designed for.
+- **Bench numbers unchanged** by this cycle (UX/mobile work, no perf-relevant changes). Still 720 KB / 0.9 ms parse+eval.
 
 ---
 
