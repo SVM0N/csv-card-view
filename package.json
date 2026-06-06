@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "dev": "node esbuild.config.mjs --watch",
-    "deploy": "cp main.js styles.css manifest.json csv-card-view/",
+    "deploy": "cp main.js styles.css manifest.json world-map.svg csv-card-view/",
     "build:deploy": "npm run build && npm run deploy",
     "test": "node test-plugin-logic.mjs",
     "test:csv": "node test-csv-parser.mjs",
