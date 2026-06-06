@@ -48,7 +48,7 @@ Anything that touches input focus / picker positioning / viewport sizing on mobi
 
 ## Open follow-ups
 
-- **main.ts at ~2300 lines.** The `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` split is overdue but risky without DOM-level test coverage. Deserves a dedicated session and a minimal regression harness designed first.
+- **main.ts modularization — IN PROGRESS (2569 → 2103).** Extracted so far: `CardViewSettingTab` → `src/settings-tab.ts`, the csv-add form → `src/add-entry-form.ts` (both low-coupling, type-only import of CardViewPlugin to avoid cycles). **DOM regression harness now exists** (`test-view-smoke.mjs` + `test-support/{dom-env,obsidian-stub}.mjs`): jsdom + Obsidian's `createEl`/`createDiv`/`setText`/`addClass`/`setAttr`/… polyfilled onto `Element.prototype` (SVG paths need it too), `obsidian` aliased to a stub for esbuild bundling. Renders a view into a real DOM tree and asserts structure (currently 4 cases over `renderTravel`). Wired into `npm run test:view` + `test:all`. **Next:** the `CardView` view renderers (dashboard ~490, library ~240, kanban ~210, toolbar ~200, table ~92, generateMobileFiles ~87). Each leans on ~15–20 private members, so convert to free functions `renderX(view, container)` and widen visibility (or a `ViewContext` interface), one at a time — and add a smoke case here (drive with a hand-built `view` stub, no need to instantiate CardView/FileView) before committing each.
 
 - **regenerate-mobile-dashboards.mjs still has a parallel template copy** of what's in `src/mobile-templates.ts`. Eliminating needs a plain-JS rewrite so both `.ts` (esbuild) and `.mjs` (node) callers can import the templates without esbuild.
 

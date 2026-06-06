@@ -11,7 +11,8 @@
     "test": "node test-plugin-logic.mjs",
     "test:csv": "node test-csv-parser.mjs",
     "test:mobile": "node test-mobile-dashboards.mjs",
-    "test:all": "node test-csv-parser.mjs && node test-plugin-logic.mjs && node test-mobile-dashboards.mjs",
+    "test:view": "node test-view-smoke.mjs",
+    "test:all": "node test-csv-parser.mjs && node test-plugin-logic.mjs && node test-mobile-dashboards.mjs && node test-view-smoke.mjs",
     "regen:mobile": "node regenerate-mobile-dashboards.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test:all && npm run build:deploy"
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^18.0.0",
     "esbuild": "^0.19.0",
+    "jsdom": "^29.1.1",
     "obsidian": "latest",
     "typescript": "^5.0.0"
   },
