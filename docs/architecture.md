@@ -33,7 +33,7 @@ Everything in memory. `onLoadFile` populates, `doSave` flushes.
 
 ## View modes
 
-`type ViewMode = "kanban-genre" | "table" | "dashboard" | "library"`. Switched via toolbar. Full re-render on each switch.
+`type ViewMode = "kanban-genre" | "table" | "dashboard" | "library" | "travel"`. Switched via toolbar (only modes valid for the file's columns are shown). Full re-render on each switch.
 
 ## Module map (main.ts)
 
@@ -209,16 +209,38 @@ Regressions in any of these are caught by `npm run test:mobile` (simulator runs 
 
 **Known still-duplicated:** `regenerate-mobile-dashboards.mjs` keeps its own parallel template copy — unifying needs a plain-JS rewrite so both `.ts` (esbuild) and `.mjs` (node) callers can import.
 
-## Refactoring status
+## Module layout
 
 ```
+main.ts                  # CardView lifecycle + shared helpers (col detection, notes,
+                         # context menu, renderView dispatch, renderViewPreservingScroll,
+                         # getFilteredRows, renderSelectField, backupToArchive, loadMapSvg)
+                         # + CardViewPlugin entry point. ~770 lines.
 src/
-├── types.ts            # Types, interfaces, DEFAULT_SETTINGS, CARD_VIEW_TYPE
-├── utils.ts            # parseCSV (Papa wrapper), showSelectPicker, sanitizeFilename, titleCase,
-│                       # formatRatingForDisplay, resolvePath, migrateFileConfigKey
-├── modals.ts           # AddEntryModal, NoteExpanderModal, FileConfigModal
-└── mobile-templates.ts # generateHabitMobileDashboard, generateLibraryMobileDashboard,
-                        # generateGenericMobileDashboard (pure functions, byte-identical to old inline templates)
+├── types.ts             # Types, DEFAULT_SETTINGS, ResidencyRule, CARD_VIEW_TYPE
+├── utils.ts             # parseCSV (Papa wrapper), showSelectPicker, sanitizeFilename, titleCase,
+│                        # formatRatingForDisplay, resolvePath, migrateFileConfigKey
+├── modals.ts            # AddEntryModal, NoteExpanderModal, FileConfigModal, SearchModal, makeFieldInput
+├── field-types.ts       # column-type heuristics for the editor (pure, tested)
+├── settings-tab.ts      # CardViewSettingTab + residency-rule editor
+├── add-entry-form.ts    # the csv-add mobile entry form
+├── mobile-templates.ts  # generateHabit/Library/GenericMobileDashboard (pure)
+├── travel-data.ts       # analyzeTravel + country reference data (pure, tested)
+├── residency.ts         # evaluateResidency rule engine (pure, tested)
+├── travel-view.ts       # travel view renderer
+└── view/
+    ├── table.ts library.ts kanban.ts toolbar.ts dashboard.ts mobile.ts
 ```
 
-**main.ts at ~2300 lines.** A future split into `src/view/{toolbar,table,kanban,dashboard,library,mobile}.ts` is overdue but risky without DOM-level test coverage. Deserves a dedicated session with a minimal regression harness designed first.
+**Renderer pattern.** Each view renderer is a free function `renderX(view, container)`
+taking the `CardView` via a type-only import (no runtime cycle); the members they
+reach are public on `CardView`. `dashboard.ts` owns the lazy `loadChart` so non-dashboard
+sessions never load Chart.js.
+
+**Test net.** `test-view-smoke.mjs` (+ `test-support/`) renders each view into jsdom
+with Obsidian's `createEl`/etc. polyfilled onto `Element.prototype`; renderers are
+driven by hand-built `view` stubs. `npm run test:view` / `test:all`. Add a renderer →
+add a smoke case.
+
+*(Optional future polish: a `ViewContext` interface so renderers depend on an explicit
+contract instead of the whole `CardView` type. Not needed — current setup is type-safe.)*
