@@ -76,3 +76,18 @@ Anything that touches input focus / picker positioning / viewport sizing on mobi
 2. **One affordance per action.** If the user can click the thing, don't put a button next to it that does the same. Hover-tint, `cursor`, placeholder text. Several past UX commits deleted ceremony around things that already worked (kanban "Edit note" button, expander "Edit"/"Preview" toggle, table "⤢" inline button).
 3. **Generated artifacts are not the source of truth.** Mobile dashboards are stamped from `src/mobile-templates.ts`. Manual `.md` edits get wiped the next "📱 Mobile" click. Fix bugs in the template, run `npm run regen:mobile`. (The simulator catches drift empirically.)
 4. **Build the test harness before the third bug.** `test-mobile-dashboards.mjs` runs each dataviewjs block against a stubbed Dataview runtime backed by real CSVs. Turned "I think this works" into "the CI knows this works." Every subsequent feature was cheaper because the safety net was already there.
+
+---
+
+## Publishing to the Obsidian community store (future — not yet done)
+
+Currently distributed manually (`npm run deploy`). To list it in the community store:
+
+1. **Add a `LICENSE`** — there isn't one. Community plugins must be open-source (MIT is the usual choice). Set `author`/`authorUrl` in `manifest.json` (authorUrl is currently empty).
+2. **Add `versions.json`** at the repo root mapping plugin version → min Obsidian version, e.g. `{ "1.1.0": "1.4.0" }`. Keep it in sync with `manifest.json` on every release.
+3. **Cut a GitHub release** tagged with the exact version, **no `v` prefix** (tag `1.1.0`, not `v1.1.0`). Attach as binary assets: `main.js`, `manifest.json`, `styles.css`, **and `world-map.svg`**.
+   - ⚠️ **`world-map.svg` is a runtime-loaded asset** (read from the plugin dir by `loadMapSvg`), not bundled into `main.js`. If it's missing from the release assets / installed folder, the travel map silently breaks. Easy to forget — `npm run deploy` already copies it locally, but a release must include it explicitly.
+4. **Submit to the directory:** fork `obsidianmd/obsidian-releases`, add an entry to `community-plugins.json` (`id`, `name`, `author`, `description`, `repo`), open a PR. A bot + reviewer check manifest validity, the release assets, README, and the [developer policies](https://docs.obsidian.md/Developer+policies) (no undisclosed telemetry/network, etc.).
+5. **Updates after listed:** bump `manifest.json` + `versions.json` + `package.json`, cut a new same-named tag/release with fresh assets. Obsidian picks it up; no second PR needed.
+
+For beta/early distribution without the store, **BRAT** installs straight from a GitHub repo + release tag — useful for testing before (or instead of) submitting.
