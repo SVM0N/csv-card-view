@@ -16,7 +16,8 @@ no sync).
 - **Notes as Markdown** — any "notes"-style column renders and edits as
   Markdown, inline or in an expander.
 - **Per-file configuration** — pick the category/status/notes columns, card
-  fields, and default view per file (⚙ Columns).
+  fields, and default view per file (⚙ Columns). Kanban group-by and library
+  sort choices persist per file too.
 - **Mobile dashboards** — generate a DataviewJS dashboard with an add-entry
   form for phone use (📱 Mobile).
 - **Multi-select for list columns** — category/genre/tags pickers toggle
@@ -43,8 +44,8 @@ The toolbar shows only the modes that make sense for the file's columns:
 |------|---------------|---------------|
 | **Travel** | `country` + `date_entered` + `date_left` + `source` columns | World choropleth, stats, per-country day totals, year timeline, editable trips |
 | **Dashboard** | a date column is detected | Habit tracker: daily toggles, progress chart, streaks, per-habit calendars |
-| **Cards** (library) | a category column is detected | Cards grouped by genre/category, with status dots, ratings, tags |
-| **Kanban** | a category column is detected | Columns by genre, grouped by status, with inline notes |
+| **Cards** (library) | a category column is detected | Cards grouped by genre/category, with status dots, ratings, tags, and a sort selector (status / title / rating / year) |
+| **Kanban** | a category column is detected | Columns by genre (or any column via the per-file "Group by" selector — year columns bucket into decades), grouped by status, with inline notes |
 | **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
 | **Focus** | non-date, non-travel files | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
 | **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors. Status/category bars click through to the filtered library |
@@ -130,7 +131,7 @@ src/
   field-types.ts      column-type heuristics for the editor (pure, tested)
   settings-tab.ts     plugin settings + residency-rule editor
   add-entry-form.ts   the csv-add mobile entry form
-  mobile-templates.ts DataviewJS dashboard templates
+  mobile-templates.mjs DataviewJS dashboard templates (plain JS — shared with the node regen script)
   travel-data.ts      travel analysis + country reference data (pure, tested)
   residency.ts        residency-rule evaluation (pure, tested)
   travel-view.ts      travel view renderer

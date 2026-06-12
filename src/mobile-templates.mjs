@@ -1,24 +1,19 @@
-import { titleCase } from "./utils";
-
 /**
- * Mobile dashboard templates.
+ * Mobile dashboard templates — THE single source of truth.
  *
  * Each function returns a complete markdown file ready to be written under
  * `<folder>/Mobile/<basename>.md`. The body is a frontmatter block plus one
- * or more `csv-add` / `csv-refresh` / `dataviewjs` blocks. The xlsx-side
- * source of truth is the file referenced by `filePath`; the dataviewjs
- * reads from the CSV helper at `csvPath` because Dataview on mobile can't
- * parse xlsx.
+ * or more `csv-add` / `csv-refresh` / `dataviewjs` blocks reading the
+ * canonical CSV at `csvPath`.
  *
- * These were inline template literals on CardView for most of the
- * project's life. Moved out here so:
- *   - main.ts stops shipping ~400 lines of stringified JS that has no
- *     syntax-highlight, no type-check, no isolated test entry point;
- *   - any future template change is a contained diff in this file;
- *   - the regen script (`regenerate-mobile-dashboards.mjs`) still has a
- *     parallel copy — eliminating that duplication needs a plain-JS rewrite
- *     of these functions and is its own session. The mobile-dashboard
- *     simulator (`test-mobile-dashboards.mjs`) catches drift empirically.
+ * This file is plain JS (.mjs) on purpose: it's imported by BOTH
+ *   - `src/view/mobile.ts` (bundled into main.js by esbuild — the "📱 Mobile"
+ *     button in Obsidian), and
+ *   - `regenerate-mobile-dashboards.mjs` (run directly by node, no build).
+ * That kills the old hand-synced parallel copy in the regen script. Keep it
+ * dependency-free so node can import it without a build step; callers pass
+ * in anything that needs plugin-side helpers (e.g. the habit template takes
+ * pre-computed `labels` instead of importing titleCase).
  *
  * Three gotchas worth keeping in mind when editing:
  *   - CSV type coercion: Dataview's `dv.io.csv` returns numbers for
@@ -26,7 +21,7 @@ import { titleCase } from "./utils";
  *     Any string-only call (.localeCompare, .toLowerCase, .split) on a
  *     raw field must be wrapped in String(...).
  *   - titleKey fallback: quotes/dictionary have no Title/Name column —
- *     the library template falls back through Quote/Headline/Phrase.
+ *     callers fall back through Quote/Headline/Phrase.
  *   - Negative status values clutter the kanban: "no" / "unwatched" /
  *     "todo" are filtered out so unfinished items render quietly.
  *     Affirmative finished values (yes/watched/seen/finished/read)
@@ -44,20 +39,19 @@ const DATAVIEW_FOOTER = `
 <small style="color:var(--text-faint)">Requires Dataview plugin with DataviewJS enabled</small>
 `;
 
-export interface HabitTemplateOptions {
-  /** Note-relative path to the source xlsx (`../<basename>.xlsx`). */
-  filePath: string;
-  /** Vault-relative path to the CSV helper file. */
-  csvPath: string;
-  /** Columns to render as habit toggles. */
-  habitCols: string[];
-  /** Column name holding the date. Used inside the dataviewjs block. */
-  dateCol: string;
-}
-
-export function generateHabitMobileDashboard(opts: HabitTemplateOptions): string {
-  const { filePath, csvPath, habitCols, dateCol } = opts;
-  const labels = habitCols.map(h => titleCase(h));
+/**
+ * Habit-tracker dashboard (files with a date column).
+ *
+ * @param {object} opts
+ * @param {string} opts.filePath  Note-relative path to the CSV (`../<basename>.csv`) for csv-add.
+ * @param {string} opts.csvPath   Vault-relative path to the CSV for dataviewjs.
+ * @param {string[]} opts.habitCols  Columns to render as habit toggles.
+ * @param {string[]} opts.labels  Display labels for habitCols (same order, pre-title-cased).
+ * @param {string} opts.dateCol   Column name holding the date.
+ * @returns {string}
+ */
+export function generateHabitMobileDashboard(opts) {
+  const { filePath, csvPath, habitCols, labels, dateCol } = opts;
 
   return `${FRONTMATTER}## Quick Add
 
@@ -161,22 +155,23 @@ if (!csvData || !csvData.length) {
 ${DATAVIEW_FOOTER}`;
 }
 
-export interface LibraryTemplateOptions {
-  filePath: string;
-  csvPath: string;
-  titleKey: string;
-  categoryCol: string;
-  statusCol: string;
-  /** Empty string when the file has no author/director-like column. */
-  authorKey: string;
-  yearCol: string;
-  ratingCol: string;
-  themeCol: string;
-  /** 2-col grid for short titles (books/movies); 1-col for long ones (quotes). */
-  compactGrid: boolean;
-}
-
-export function generateLibraryMobileDashboard(opts: LibraryTemplateOptions): string {
+/**
+ * Library dashboard (files with a category column: books, movies, quotes).
+ *
+ * @param {object} opts
+ * @param {string} opts.filePath
+ * @param {string} opts.csvPath
+ * @param {string} opts.titleKey
+ * @param {string} opts.categoryCol
+ * @param {string} opts.statusCol
+ * @param {string} opts.authorKey  Empty string when the file has no author/director-like column.
+ * @param {string} opts.yearCol
+ * @param {string} opts.ratingCol
+ * @param {string} opts.themeCol
+ * @param {boolean} opts.compactGrid  2-col grid for short titles (books/movies); 1-col for long ones (quotes).
+ * @returns {string}
+ */
+export function generateLibraryMobileDashboard(opts) {
   const { filePath, csvPath, titleKey, categoryCol, statusCol, authorKey, yearCol, ratingCol, themeCol, compactGrid } = opts;
 
   return `${FRONTMATTER}## Add Entry
@@ -360,14 +355,17 @@ if (!csvData || !csvData.length) {
 ${DATAVIEW_FOOTER}`;
 }
 
-export interface GenericTemplateOptions {
-  filePath: string;
-  csvPath: string;
-  /** Header row from the file, written verbatim into the table. */
-  headers: string[];
-}
-
-export function generateGenericMobileDashboard(opts: GenericTemplateOptions): string {
+/**
+ * Generic dashboard — expandable, scrollable table. Used for files without a
+ * category column (e.g. dictionary).
+ *
+ * @param {object} opts
+ * @param {string} opts.filePath
+ * @param {string} opts.csvPath
+ * @param {string[]} opts.headers  Header row from the file, written verbatim into the table.
+ * @returns {string}
+ */
+export function generateGenericMobileDashboard(opts) {
   const { filePath, csvPath, headers } = opts;
 
   return `${FRONTMATTER}## Add Entry

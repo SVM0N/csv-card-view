@@ -15,7 +15,8 @@ csv-card-view/
 │   ├── utils.ts                  # parseCSV (Papa), showSelectPicker, resolvePath,
 │   │                             # migrateFileConfigKey, formatRatingForDisplay (~280 lines)
 │   ├── modals.ts                 # Modal classes (~420 lines)
-│   └── mobile-templates.ts       # Three dashboard template functions (~440 lines)
+│   └── mobile-templates.mjs      # Three dashboard template functions (plain JS, dependency-
+│                                 # free — bundled by esbuild AND imported by node's regen script)
 ├── styles.css                    # All plugin CSS (~2700 lines)
 ├── manifest.json                 # Obsidian plugin manifest (id: csv-card-view)
 ├── package.json                  # deps: chart.js, papaparse, esbuild, obsidian types
@@ -39,10 +40,10 @@ csv-card-view/
 │                                 # on generic dashboards. Skips missing files mid-iCloud-sync.
 │                                 # ⚠️ Hardcoded vault paths under `Knowledge/Library/...` —
 │                                 # update if the data folder moves.
-├── regenerate-mobile-dashboards.mjs  # Headless regenerator (`npm run regen:mobile`) — mirrors
-│                                 # the plugin's template dispatcher and stamps fresh dashboards
-│                                 # without needing Obsidian reload + button clicks. Same
-│                                 # hardcoded-path caveat as the simulator.
+├── regenerate-mobile-dashboards.mjs  # Headless regenerator (`npm run regen:mobile`) — imports
+│                                 # src/mobile-templates.mjs (the same module the plugin bundles)
+│                                 # and stamps fresh dashboards without needing Obsidian reload
+│                                 # + button clicks. Same hardcoded-path caveat as the simulator.
 ├── xlsx-to-csv-roundtrip.mjs     # One-shot validator (kept for record). Proved Papa
 │                                 # round-trips xlsx losslessly before the CSV migration.
 ├── migrate-xlsx-to-csv.mjs       # One-shot migration script (kept for record). Wrote

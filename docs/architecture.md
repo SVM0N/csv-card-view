@@ -112,6 +112,9 @@ interface FileConfig {
   cardFields?: string[];     // fields surfaced on Library/Kanban cards
   defaultMode?: ViewMode;
   sortNewestFirst?: boolean; // table sort toggle
+  kanbanGroupCol?: string;   // kanban "Group by" column (unset = category;
+                             // year-like columns bucket into decades)
+  librarySort?: LibrarySort; // Cards-view sort: status|title|rating|year
 }
 ```
 
@@ -180,7 +183,7 @@ Long non-select field values in kanban cards truncate at 40 chars with `…`. Fu
 
 Mobile dashboards remain useful for habit logging and read-only browsing because Dataview rendering is cheaper than the full plugin lift, even though the CSV is now natively opened by the plugin on mobile too.
 
-"📱 Mobile" toolbar button stamps `<folder>/Mobile/<basename>.md` from one of three templates in `src/mobile-templates.ts`. Each template returns a complete markdown file with frontmatter (`obsidianUIMode: preview` for the Force View Mode community plugin), one or more `csv-add` / `csv-refresh` / `dataviewjs` blocks. Three template types:
+"📱 Mobile" toolbar button stamps `<folder>/Mobile/<basename>.md` from one of three templates in `src/mobile-templates.mjs`. Each template returns a complete markdown file with frontmatter (`obsidianUIMode: preview` for the Force View Mode community plugin), one or more `csv-add` / `csv-refresh` / `dataviewjs` blocks. Three template types:
 
 1. **Habit tracker** — when first column is dates: csv-add form (pre-fills from existing row by date) + entries table.
 2. **Library** — when category column exists: csv-add form + kanban/table toggle (collapsible genre sections with cards).
@@ -209,9 +212,9 @@ Generated dashboards always emit the `../` form so the data folder is portable �
 
 Regressions in any of these are caught by `npm run test:mobile` (simulator runs each dataviewjs block against a stubbed runtime + real CSVs).
 
-⚠️ **Generated `.md` files are NOT the source of truth — `src/mobile-templates.ts` is.** Manual edits get wiped the next time the user clicks "📱 Mobile" or runs `npm run regen:mobile`. Fix bugs in the template, then `npm run build:deploy && npm run regen:mobile && npm run test:mobile` to update + verify.
+⚠️ **Generated `.md` files are NOT the source of truth — `src/mobile-templates.mjs` is.** Manual edits get wiped the next time the user clicks "📱 Mobile" or runs `npm run regen:mobile`. Fix bugs in the template, then `npm run build:deploy && npm run regen:mobile && npm run test:mobile` to update + verify.
 
-**Known still-duplicated:** `regenerate-mobile-dashboards.mjs` keeps its own parallel template copy — unifying needs a plain-JS rewrite so both `.ts` (esbuild) and `.mjs` (node) callers can import.
+The templates are plain JS (`.mjs`) on purpose: the same module is bundled into `main.js` by esbuild (via `src/view/mobile.ts`, `allowJs` in tsconfig) **and** imported directly by node in `regenerate-mobile-dashboards.mjs` — the old hand-synced parallel copy in the regen script is gone. Keep the module dependency-free; callers pass in anything that needs plugin helpers (e.g. the habit template takes pre-computed `labels` instead of importing `titleCase`).
 
 ## Module layout
 
@@ -228,7 +231,8 @@ src/
 ├── field-types.ts       # column-type heuristics for the editor (pure, tested)
 ├── settings-tab.ts      # CardViewSettingTab + residency-rule editor
 ├── add-entry-form.ts    # the csv-add mobile entry form
-├── mobile-templates.ts  # generateHabit/Library/GenericMobileDashboard (pure)
+├── mobile-templates.mjs # generateHabit/Library/GenericMobileDashboard (plain JS,
+│                        # dependency-free — shared with regenerate-mobile-dashboards.mjs)
 ├── travel-data.ts       # analyzeTravel + country reference data (pure, tested)
 ├── residency.ts         # evaluateResidency rule engine (pure, tested)
 ├── travel-view.ts       # travel view renderer

@@ -4,11 +4,14 @@
 
 import { Notice, TFile } from "obsidian";
 import type { CardView } from "../../main";
+import { titleCase } from "../utils";
+// .mjs on purpose — the same module is imported directly by node in
+// regenerate-mobile-dashboards.mjs, so the templates have one source.
 import {
   generateHabitMobileDashboard as habitMobileTemplate,
   generateLibraryMobileDashboard as libraryMobileTemplate,
   generateGenericMobileDashboard as genericMobileTemplate,
-} from "../mobile-templates";
+} from "../mobile-templates.mjs";
 
 export async function generateMobileFiles(view: CardView): Promise<void> {
   if (!view.file) return;
@@ -38,10 +41,14 @@ export async function generateMobileFiles(view: CardView): Promise<void> {
 
   if (dateCol) {
     // Habit tracker - use Dataview to query CSV
+    const habitCols = view.getBooleanColumns();
     dashboardContent = habitMobileTemplate({
       filePath,
       csvPath,
-      habitCols: view.getBooleanColumns(),
+      habitCols,
+      // Labels are computed here (not in the template) so the template
+      // module stays dependency-free for the node regen script.
+      labels: habitCols.map(titleCase),
       dateCol,
     });
   } else if (categoryCol) {
