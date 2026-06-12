@@ -45,10 +45,10 @@ file's columns (the ⚙ Columns "Default view" picker offers the same set):
 |------|---------------|---------------|
 | **Travel** | `country` + `date_entered` + `date_left` + `source` columns | World choropleth, stats, per-country day totals, year timeline, editable trips |
 | **Dashboard** | a date column is detected | Habit tracker: daily toggles, progress chart, streaks, per-habit calendars |
-| **Cards** (library) | a category column is detected | Cards grouped by genre/category, with status dots, ratings, tags, and a sort selector (status / title / rating / year) |
-| **Kanban** | a category column is detected | Columns by genre (or any column via the per-file "Group by" selector — year columns bucket into decades), grouped by status, with inline notes |
+| **Cards** (library) | any groupable column exists (category preferred, else auto-picked) | Cards grouped by genre/category, with status dots, ratings, tags, and a sort selector (status / title / rating / year) |
+| **Kanban** | any groupable column exists (category preferred, else auto-picked) | Columns by genre (or any column via the per-file "Group by" selector — year columns bucket into decades), grouped by status, with inline notes |
 | **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
-| **Focus** | non-date, non-travel files | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
+| **Focus** | any non-empty file | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
 | **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors. Status/category bars click through to the filtered library |
 
 ## Travel view

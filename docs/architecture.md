@@ -10,8 +10,10 @@ An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, librar
 - **By Genre** — kanban grouped by category column, with status subgroups inside each column.
 - **Table** — spreadsheet view with resizable columns; click a header to sort (asc → desc → off, numeric-aware, empties last). Sticky header: in table mode the content area gets `--no-yscroll` and `.csv-table-wrapper` becomes the y-scroller, giving `position: sticky` a scrollport.
 - **Travel** — world choropleth + timeline + residency counters for travel-log CSVs. Countries are selectable (map shape / Countries-table row / timeline segment) → detail panel under the map with every trip there; timeline dims other countries while selected. Stats row includes Cities + Longest trip; a "📍 Currently in …" banner shows when today falls inside a confirmed trip (`currentStay` in travel-data, blank `date_left` = ongoing, partial dates excluded). Timeline years carry "Nd · M countries" summaries.
-- **Stats** — pure-CSS bar charts (status / category / rating / year / top-author breakdowns); deliberately no Chart.js. Shown for non-date, non-travel files with a chartable column (`hasStatsColumns`).
-- **Focus** — one entry at a time with big typography and prev/random/next nav (←/→ keys); built for quote/dictionary files. Shown for non-date, non-travel files.
+- **Stats** — pure-CSS bar charts (status / category / rating / year / top-author breakdowns); deliberately no Chart.js. Shown whenever the file has a chartable column (`hasStatsColumns`).
+- **Focus** — one entry at a time with big typography and prev/random/next nav (←/→ keys); built for quote/dictionary files. Shown for any non-empty file.
+
+Cards/Kanban are available whenever the file has *some* groupable column — per-file "Group by" pick → detected category column → auto-picked fallback (`effectiveGroupCol` in `view/kanban.ts`, scoring via `pickFallbackGroupCol` in `utils.ts`: skips notes/date/title and all-unique or single-value columns, prefers ~8 distinct values). Files like travel logs with no Category column still get Cards/Kanban grouped by e.g. country or city.
 
 The plugin used to also handle `.xlsx` (via SheetJS lazy-loaded chunk + `_csv_helpers/` mirror for Dataview). That whole stack was retired in commit "SWITCH TO CSV AS MAIN" — see [handoff.md](../handoff.md) for the rationale and the round-trip validator that proved the migration was lossless.
 
