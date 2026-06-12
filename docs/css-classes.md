@@ -107,6 +107,19 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-add-submit` | Code block | Submit button (label flips between "Add" / "Update") |
 | `.csv-add-error` | Code block | Error message styling |
 | `.csv-refresh-btn` | Code block | Mobile `↻ refresh` button (subtle, no background) |
+| `.csv-stats-wrap` | Stats | Centered column (max 720px) for all stats sections |
+| `.csv-stats-overview` / `-chip` / `-chip-value` / `-chip-label` | Stats | Top row of stat tiles (entries, done %, avg rating…) — same visual family as travel-view stat tiles |
+| `.csv-stats-section` / `-section-title` | Stats | One bar-chart block + its accent-colored uppercase title |
+| `.csv-stats-bar-row` / `-label` / `-track` / `-fill` / `-count` | Stats | Grid bar row; fill modifiers `.is-done` (green), `.is-progress` (blue), `.is-dropped` (red), `.is-rating` (amber), default accent |
+| `.csv-focus-wrap` | Focus | Centered column (max 640px), `tabindex=0` so ←/→ keys work; `outline: none` |
+| `.csv-focus-card` | Focus | The single entry card |
+| `.csv-focus-position` | Focus | "n / N" indicator |
+| `.csv-focus-title` | Focus | Big title; `pre-wrap` so quote line breaks survive; `.is-clickable` when an expander is available |
+| `.csv-focus-sub` / `-notes` / `-meta` | Focus | Author line, rendered-markdown notes body, chip row (reuses `.csv-kanban-chip`) |
+| `.csv-focus-nav` / `-nav-btn` / `-nav-rand` | Focus | Prev / 🔀 / next button row; full-width touch targets on mobile |
+| `.csv-th-sortable` | Table | Modifier on every `<th>`; pointer cursor + accent hover |
+| `.csv-th-sort-indicator` | Table | ▲/▼ span inside the sorted column's `<th>` |
+| `.csv-clear-filters-btn` | Library/Kanban/Focus | "Clear filters"/"Clear search" button in no-results empty states |
 
 ## Status colors
 

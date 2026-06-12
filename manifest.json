@@ -1,9 +1,9 @@
 {
   "id": "csv-card-view",
   "name": "CSV Card View",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minAppVersion": "1.4.0",
-  "description": "View and edit CSV files as cards, kanban, table, a habit dashboard, a library, or an interactive travel map. Notes columns render as Markdown.",
+  "description": "View and edit CSV files as cards, kanban, table, a habit dashboard, a library, stats charts, a one-entry-at-a-time focus reader, or an interactive travel map. Notes columns render as Markdown.",
   "author": "Simon",
   "authorUrl": "",
   "isDesktopOnly": false

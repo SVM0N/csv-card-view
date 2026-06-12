@@ -2,13 +2,14 @@
 
 An [Obsidian](https://obsidian.md) plugin that opens `.csv` files as rich,
 editable views — cards, kanban, table, a habit dashboard, a library browser,
-and an interactive travel map — instead of raw text. Notes columns render as
-Markdown. Everything edits in place and writes straight back to the one
-canonical CSV (no shadow copies, no sync).
+a stats page, a one-entry-at-a-time focus reader, and an interactive travel
+map — instead of raw text. Notes columns render as Markdown. Everything edits
+in place and writes straight back to the one canonical CSV (no shadow copies,
+no sync).
 
 ## Features
 
-- **Six view modes**, auto-selected from the columns in the file (see below).
+- **Eight view modes**, auto-selected from the columns in the file (see below).
 - **Inline editing** — click a cell to edit; changes save back to the CSV.
   Date columns get a native `yyyy-mm-dd` picker; known columns get non-strict
   dropdowns (pick a suggestion or type your own).
@@ -31,7 +32,9 @@ The toolbar shows only the modes that make sense for the file's columns:
 | **Dashboard** | a date column is detected | Habit tracker: daily toggles, progress chart, streaks, per-habit calendars |
 | **Cards** (library) | a category column is detected | Cards grouped by genre/category, with status dots, ratings, tags |
 | **Kanban** | a category column is detected | Columns by genre, grouped by status, with inline notes |
-| **Table** | always | Editable spreadsheet view with resizable columns |
+| **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
+| **Focus** | non-date, non-travel files | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
+| **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors |
 
 ## Travel view
 
@@ -105,7 +108,7 @@ dispatch, and the plugin entry point. Each view renderer and feature lives in
 ```
 src/
   types.ts            settings + shared types
-  utils.ts            pure helpers (CSV parse, rating format, select picker)
+  utils.ts            pure helpers (CSV parse, rating format, select picker, column sort)
   modals.ts           add-entry / note-expander / search / file-config modals
   field-types.ts      column-type heuristics for the editor (pure, tested)
   settings-tab.ts     plugin settings + residency-rule editor
@@ -116,6 +119,7 @@ src/
   travel-view.ts      travel view renderer
   view/
     table.ts library.ts kanban.ts toolbar.ts dashboard.ts mobile.ts
+    stats.ts focus.ts
 ```
 
 ### Tests

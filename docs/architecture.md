@@ -4,11 +4,14 @@ Reference doc — load when working on the plugin's data model, view classes, mo
 
 ## What this is
 
-An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, or library UI. Built for Simon's book library and habit tracking. Four view modes:
+An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, library, stats, focus, or travel-map UI. Built for Simon's book library and habit tracking. View modes:
 - **Dashboard** — date-based habit tracking with chart, streaks, and stats (auto-detected when first column is dates).
 - **Library** — grid of cards with filters (status, genre, search), collapsible genre sections, green-dot for done items, ratings, tags.
 - **By Genre** — kanban grouped by category column, with status subgroups inside each column.
-- **Table** — spreadsheet view with resizable columns.
+- **Table** — spreadsheet view with resizable columns; click a header to sort (asc → desc → off, numeric-aware, empties last).
+- **Travel** — world choropleth + timeline + residency counters for travel-log CSVs.
+- **Stats** — pure-CSS bar charts (status / category / rating / year / top-author breakdowns); deliberately no Chart.js. Shown for non-date, non-travel files with a chartable column (`hasStatsColumns`).
+- **Focus** — one entry at a time with big typography and prev/random/next nav (←/→ keys); built for quote/dictionary files. Shown for non-date, non-travel files.
 
 The plugin used to also handle `.xlsx` (via SheetJS lazy-loaded chunk + `_csv_helpers/` mirror for Dataview). That whole stack was retired in commit "SWITCH TO CSV AS MAIN" — see [handoff.md](../handoff.md) for the rationale and the round-trip validator that proved the migration was lossless.
 
@@ -33,7 +36,7 @@ Everything in memory. `onLoadFile` populates, `doSave` flushes.
 
 ## View modes
 
-`type ViewMode = "kanban-genre" | "table" | "dashboard" | "library" | "travel"`. Switched via toolbar (only modes valid for the file's columns are shown). Full re-render on each switch.
+`type ViewMode = "kanban-genre" | "table" | "dashboard" | "library" | "travel" | "stats" | "focus"`. Switched via toolbar (only modes valid for the file's columns are shown). Full re-render on each switch.
 
 ## Module map (main.ts)
 
@@ -62,7 +65,8 @@ Wide modal (~780px) for viewing/editing a full entry. Three sections: header (ti
 | `scheduleSave()` | 600ms debounce wrapper |
 | `renderView()` | Clears and rebuilds entire `contentEl` |
 | `renderToolbar(root)` | Mode buttons + search + ⚙ Columns + 📱 Mobile + 💾 Backup + + Add (mobile collapses Cols/Mobile/Backup into ⋯) |
-| `renderKanbanGenre/Table/Dashboard/Library` | The four view renderers |
+| `renderKanbanGenre/Table/Dashboard/Library/Stats/Focus` | The view renderers (free functions in `src/view/`) |
+| `renderMarkdownInto(el, text)` | MarkdownRenderer wrapper tied to the view's render Component (used by Focus) |
 | `renderKanbanCard(container, row, ...)` | Single kanban card |
 | `renderSelectField/makeEditable` | Inline editors |
 | `openNoteExpander/openAddModal` | Modal openers |
@@ -219,7 +223,7 @@ main.ts                  # CardView lifecycle + shared helpers (col detection, n
 src/
 ├── types.ts             # Types, DEFAULT_SETTINGS, ResidencyRule, CARD_VIEW_TYPE
 ├── utils.ts             # parseCSV (Papa wrapper), showSelectPicker, sanitizeFilename, titleCase,
-│                        # formatRatingForDisplay, resolvePath, migrateFileConfigKey
+│                        # formatRatingForDisplay, resolvePath, migrateFileConfigKey, sortRowsByColumn
 ├── modals.ts            # AddEntryModal, NoteExpanderModal, FileConfigModal, SearchModal, makeFieldInput
 ├── field-types.ts       # column-type heuristics for the editor (pure, tested)
 ├── settings-tab.ts      # CardViewSettingTab + residency-rule editor
@@ -230,6 +234,8 @@ src/
 ├── travel-view.ts       # travel view renderer
 └── view/
     ├── table.ts library.ts kanban.ts toolbar.ts dashboard.ts mobile.ts
+    ├── stats.ts             # bar-chart insights (pure DOM, no Chart.js) + hasStatsColumns/parseRating
+    └── focus.ts             # one-entry-at-a-time reader (focusIndex/focusNavPending state on CardView)
 ```
 
 **Renderer pattern.** Each view renderer is a free function `renderX(view, container)`
