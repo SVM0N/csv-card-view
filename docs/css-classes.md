@@ -8,12 +8,14 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-toolbar` | Both | Top toolbar; `flex-wrap: wrap` so controls drop to a second row on narrow viewports |
 | `.csv-toolbar-controls` | Both | Right-hand group; also wraps |
 | `.csv-toolbar-title` | Both | Filename header; hidden on `max-width: 600px` (redundant with tab) |
-| `.csv-mode-group` | Both | Mode toggle button group |
+| `.csv-mode-group` | Both | Wrapper around the view-mode dropdown (hidden while mobile search is expanded) |
+| `.csv-mode-select` | Both | View-mode `<select>` (Travel/Dashboard/Cards/Kanban/Table/Focus/Stats, filtered by `availableModes`) |
 | `.csv-cfg-btn` | Both | "⚙ Columns", "📱 Mobile", "💾 Backup" buttons |
 | `.csv-cfg-btn-secondary` | Both | Modifier on the three secondary buttons above — hidden on `max-width: 600px` (collapsed into ⋯ overflow) |
 | `.csv-cfg-btn-overflow` | Both | ⋯ button shown only on `max-width: 600px`; click opens an Obsidian Menu with Columns / Mobile / Backup |
 | `.csv-add-btn` | Both | "+ Add" button |
 | `.csv-row-count` | Toolbar | Entry-count chip; hidden on mobile |
+| `.csv-kanban-groupbar` | Kanban | "Group by" selector row above the board; `-label` for the caption span |
 | `.csv-kanban-board` | Kanban | Horizontal flex container |
 | `.csv-kanban-col` | Kanban | Single genre column; phone-scoped to `calc(100vw - 60px)` with scroll-snap |
 | `.csv-kanban-col-header` | Kanban | Column title + count |
@@ -46,6 +48,7 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-modal-select` | Modal | `<select>` dropdown in FileConfigModal |
 | `.csv-modal-checkbox-grid` | Modal | Habit column / cardFields selector grid |
 | `.csv-modal-checkbox-label` | Modal | Checkbox + label; `.auto-detected` highlights auto-picked defaults |
+| `.csv-modal-dup-hint` | Modal | Amber "already in this file" hint under the Add modal's title input (non-blocking) |
 | `.csv-note-expander-modal` | Modal | Wide modal override (`min(780px, 90vw)`) |
 | `.csv-expander-header` | Modal | Title row |
 | `.csv-expander-fields` | Modal | Flex-wrap row of label/value field pairs |
@@ -81,7 +84,7 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-dash-timeline-cell` | Dashboard | Single day cell; `.done`, `.missed`, `.no-entry` |
 | `.csv-dash-timeline-month` | Dashboard | Month label in timeline |
 | `.csv-library-filters` | Library | Filters bar (flex, gap) |
-| `.csv-library-filter-select` | Library | Status/genre dropdown |
+| `.csv-library-filter-select` | Library | Status/genre/sort dropdowns (also reused by the kanban group-by select) |
 | `.csv-library-search` | Library | Search input |
 | `.csv-library-sections` | Library | Container for genre sections |
 | `.csv-library-section` | Library | Collapsible `<details>` element |

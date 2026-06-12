@@ -38,7 +38,8 @@ no sync).
 
 ## View modes
 
-The toolbar shows only the modes that make sense for the file's columns:
+The toolbar's view dropdown shows only the modes that make sense for the
+file's columns (the ⚙ Columns "Default view" picker offers the same set):
 
 | Mode | Appears when… | What it shows |
 |------|---------------|---------------|

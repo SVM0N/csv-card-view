@@ -54,7 +54,7 @@ Floating dropdown for select fields. `opts.multi` (used when `isMultiValueColNam
 Wide modal (~780px) for viewing/editing a full entry. Three sections: header (title), fields bar (all non-notes columns, inline-editable), notes section (rendered markdown by default, click to enter edit). Works on a shallow copy; Cancel discards.
 
 **`FileConfigModal extends Modal`**
-"⚙ Columns" toolbar button. Dropdowns for category/status/notes/default-view + checkbox grid for habit-columns and `cardFields`. Saved to `settings.fileConfigs[filePath]`.
+"⚙ Columns" toolbar button. Dropdowns for category/status/notes/default-view + checkbox grid for habit-columns and `cardFields`. Saved to `settings.fileConfigs[filePath]`. The Default-view options are passed in from `availableModes(view)` (same source as the toolbar's view dropdown), so the picker offers exactly the modes this file can render; a saved mode the file can no longer render shows as "(no longer available)" so it can be cleared.
 
 **`CardView extends FileView`**
 
