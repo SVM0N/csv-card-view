@@ -127,6 +127,9 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-tv-detailwrap` / `.csv-tv-detail` | Travel | Country detail panel slot under the map / the gold-bordered panel card |
 | `.csv-tv-detail-head` / `-flag` / `-titles` / `-name` / `-sub` / `-close` | Travel | Panel header: big flag, country name, totals line, ✕ button |
 | `.csv-tv-tl-sub` | Travel | Per-year "Nd · M countries" summary next to the timeline year label |
+| `.csv-picker-done` | Both | Done button at the bottom of a multi-select picker (raw Obsidian vars — picker mounts on body, outside the root's --csv-* scope) |
+| `.csv-random-card` / `-text` / `-sub` / `-foot` / `-src` / `-btn` | Code block | csv-random quote card (also raw Obsidian vars — renders in regular notes) |
+| `.csv-stats-bar-row.is-clickable` | Stats | Status/category bars that jump to the filtered library on click |
 
 ## Status colors
 

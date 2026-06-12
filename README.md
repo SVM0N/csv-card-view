@@ -19,6 +19,19 @@ no sync).
   fields, and default view per file (⚙ Columns).
 - **Mobile dashboards** — generate a DataviewJS dashboard with an add-entry
   form for phone use (📱 Mobile).
+- **Multi-select for list columns** — category/genre/tags pickers toggle
+  multiple values (✓ checkmarks, joined with `, `).
+- **`csv-random` code block** — embed a random entry (quote of the day, word
+  of the day) in any note, with a ↻ reshuffle button:
+
+  ```
+  ```csv-random
+  file: ../quotes.csv
+  ```
+  ```
+
+- **Palette commands** — "Add entry to current CSV" and "Cycle view mode",
+  both hotkey-able.
 - **Travel view** — an interactive world map + trip timeline + configurable
   residency/visa day-counters, for travel-log CSVs.
 
@@ -34,7 +47,7 @@ The toolbar shows only the modes that make sense for the file's columns:
 | **Kanban** | a category column is detected | Columns by genre, grouped by status, with inline notes |
 | **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
 | **Focus** | non-date, non-travel files | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
-| **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors |
+| **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors. Status/category bars click through to the filtered library |
 
 ## Travel view
 

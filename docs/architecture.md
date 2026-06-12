@@ -8,7 +8,7 @@ An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, librar
 - **Dashboard** — date-based habit tracking with chart, streaks, and stats (auto-detected when first column is dates).
 - **Library** — grid of cards with filters (status, genre, search), collapsible genre sections, green-dot for done items, ratings, tags.
 - **By Genre** — kanban grouped by category column, with status subgroups inside each column.
-- **Table** — spreadsheet view with resizable columns; click a header to sort (asc → desc → off, numeric-aware, empties last).
+- **Table** — spreadsheet view with resizable columns; click a header to sort (asc → desc → off, numeric-aware, empties last). Sticky header: in table mode the content area gets `--no-yscroll` and `.csv-table-wrapper` becomes the y-scroller, giving `position: sticky` a scrollport.
 - **Travel** — world choropleth + timeline + residency counters for travel-log CSVs. Countries are selectable (map shape / Countries-table row / timeline segment) → detail panel under the map with every trip there; timeline dims other countries while selected. Stats row includes Cities + Longest trip; a "📍 Currently in …" banner shows when today falls inside a confirmed trip (`currentStay` in travel-data, blank `date_left` = ongoing, partial dates excluded). Timeline years carry "Nd · M countries" summaries.
 - **Stats** — pure-CSS bar charts (status / category / rating / year / top-author breakdowns); deliberately no Chart.js. Shown for non-date, non-travel files with a chartable column (`hasStatsColumns`).
 - **Focus** — one entry at a time with big typography and prev/random/next nav (←/→ keys); built for quote/dictionary files. Shown for non-date, non-travel files.
@@ -42,8 +42,8 @@ Everything in memory. `onLoadFile` populates, `doSave` flushes.
 
 ### Top-level
 
-**`showSelectPicker(anchor, currentValue, allValues, onSelect, container)`** (in `src/utils.ts`)
-Floating dropdown for select fields. Fixed-positioned below anchor. Search/filter, clear, "+ Add new", arrow-key navigation + Enter to commit. On desktop, dismisses on scroll/resize of any ancestor (capture-phase listener) and flips up when there isn't room below. On touch (`matchMedia("(pointer: coarse)")`) those listeners are skipped — focusing the search input on iOS pops the virtual keyboard which fires `resize`, which would dismiss the picker immediately.
+**`showSelectPicker(anchor, currentValue, allValues, onSelect, container, opts?)`** (in `src/utils.ts`)
+Floating dropdown for select fields. `opts.multi` (used when `isMultiValueColName(h)` — Category/Genres/Tags/Themes/Topics by name) turns it into a toggle list: items check on/off, every toggle live-commits the comma-joined string via `onSelect`, the picker stays open until Done/Esc/outside-click, and comma-joined data values are split into individual options. Fixed-positioned below anchor. Search/filter, clear, "+ Add new", arrow-key navigation + Enter to commit. On desktop, dismisses on scroll/resize of any ancestor (capture-phase listener) and flips up when there isn't room below. On touch (`matchMedia("(pointer: coarse)")`) those listeners are skipped — focusing the search input on iOS pops the virtual keyboard which fires `resize`, which would dismiss the picker immediately.
 
 ### Classes
 
@@ -84,7 +84,7 @@ The class constructor takes a typed `persistSettings: () => Promise<void>` callb
 Global settings UI.
 
 **`CardViewPlugin extends Plugin`**
-Entry point. Registers view for `csv`, registers `csv-add` and `csv-refresh` code block processors. `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
+Entry point. Registers view for `csv`, registers `csv-add`, `csv-refresh`, and `csv-random` (random entry card with ↻ re-roll, `src/random-block.ts`) code block processors, plus two palette commands (`add-entry`, `cycle-view-mode` → `CardView.cycleMode`, modes from `availableModes` in `view/toolbar.ts`). `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
 
 Key methods:
 - `renderAddEntryForm(source, el, ctx)` — renders the `csv-add` code block as a form. Parses `file:`, reads headers, auto-detects select fields (cols with ≤15 unique values), writes new entries directly to the file. For habit-shape files (file has a date col), pre-fills from existing row matching the date input → submit reads as "Update". Title flips to "Updating ‹date›" and submit button label flips to "Update" (vs "Add") when the date matches.
