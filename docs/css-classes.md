@@ -120,6 +120,13 @@ Reference doc — load when editing `styles.css` or tracing a visual bug to its 
 | `.csv-th-sortable` | Table | Modifier on every `<th>`; pointer cursor + accent hover |
 | `.csv-th-sort-indicator` | Table | ▲/▼ span inside the sorted column's `<th>` |
 | `.csv-clear-filters-btn` | Library/Kanban/Focus | "Clear filters"/"Clear search" button in no-results empty states |
+| `.csv-tv-now` / `-now-loc` / `-now-sub` | Travel | "📍 Currently in …" banner under the stats (gold-tinted; only when today is inside a confirmed trip) |
+| `.cp-selected` | Travel | Accent stroke + brightness on the selected map country; overrides `.cp-tiny`'s transparent halo stroke |
+| `.csv-tv-seg.is-dim` | Travel | Timeline segment dimmed to 0.18 opacity while another country is selected |
+| `.csv-tv-row-click` / `.is-selected` | Travel | Clickable Countries-table rows; selected row gets the amber tint |
+| `.csv-tv-detailwrap` / `.csv-tv-detail` | Travel | Country detail panel slot under the map / the gold-bordered panel card |
+| `.csv-tv-detail-head` / `-flag` / `-titles` / `-name` / `-sub` / `-close` | Travel | Panel header: big flag, country name, totals line, ✕ button |
+| `.csv-tv-tl-sub` | Travel | Per-year "Nd · M countries" summary next to the timeline year label |
 
 ## Status colors
 

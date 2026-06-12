@@ -49,6 +49,10 @@ date_entered,date_left,country,city,visa_status,notes,source,resolved
 - The map colours **confirmed** countries gold and **photo-only** countries
   blue; conflict rows and photo rows that overlap a confirmed trip are excluded
   from the map/timeline/counts.
+- **Click a country** (map, Countries table, or timeline segment) to open a
+  detail panel with every trip there; click again or ✕ to close.
+- If today falls inside a confirmed trip (a blank `date_left` counts as
+  ongoing), a "📍 Currently in …" banner shows under the stats.
 - Blank or partial dates (`2022-06-??`) are allowed — counted as
   visited-but-undated.
 - The Confirmed-trips table is click-to-edit (dates, city, visa, notes).

@@ -9,7 +9,7 @@ An Obsidian plugin that opens `.csv` files as a kanban, table, dashboard, librar
 - **Library** — grid of cards with filters (status, genre, search), collapsible genre sections, green-dot for done items, ratings, tags.
 - **By Genre** — kanban grouped by category column, with status subgroups inside each column.
 - **Table** — spreadsheet view with resizable columns; click a header to sort (asc → desc → off, numeric-aware, empties last).
-- **Travel** — world choropleth + timeline + residency counters for travel-log CSVs.
+- **Travel** — world choropleth + timeline + residency counters for travel-log CSVs. Countries are selectable (map shape / Countries-table row / timeline segment) → detail panel under the map with every trip there; timeline dims other countries while selected. Stats row includes Cities + Longest trip; a "📍 Currently in …" banner shows when today falls inside a confirmed trip (`currentStay` in travel-data, blank `date_left` = ongoing, partial dates excluded). Timeline years carry "Nd · M countries" summaries.
 - **Stats** — pure-CSS bar charts (status / category / rating / year / top-author breakdowns); deliberately no Chart.js. Shown for non-date, non-travel files with a chartable column (`hasStatsColumns`).
 - **Focus** — one entry at a time with big typography and prev/random/next nav (←/→ keys); built for quote/dictionary files. Shown for non-date, non-travel files.
 
