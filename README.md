@@ -9,7 +9,7 @@ no sync).
 
 ## Features
 
-- **Eight view modes**, auto-selected from the columns in the file (see below).
+- **Nine view modes**, auto-selected from the columns in the file (see below).
 - **Inline editing** — click a cell to edit; changes save back to the CSV.
   Date columns get a native `yyyy-mm-dd` picker; known columns get non-strict
   dropdowns (pick a suggestion or type your own).
@@ -45,6 +45,7 @@ file's columns (the ⚙ Columns "Default view" picker offers the same set):
 |------|---------------|---------------|
 | **Travel** | `country` + `date_entered` + `date_left` + `source` columns | World choropleth, stats, per-country day totals, year timeline, editable trips |
 | **Dashboard** | a date column is detected | Habit tracker: daily toggles, progress chart, streaks, per-habit calendars |
+| **Tasks** | a `due`/`priority` column, or a `type` column with task/note/idea values | Project dashboard: rows grouped by `project` into a Tasks section (sorted done → priority → due, overdue flagged) and a Notes & Ideas section. Click-to-toggle done, click-to-edit priority, optional backing page per row |
 | **Cards** (library) | any groupable column exists (category preferred, else auto-picked) | Cards grouped by genre/category, with status dots, ratings, tags, and a sort selector (status / title / rating / year) |
 | **Kanban** | any groupable column exists (category preferred, else auto-picked) | Columns by genre (or any column via the per-file "Group by" selector — year columns bucket into decades), grouped by status, with inline notes |
 | **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
