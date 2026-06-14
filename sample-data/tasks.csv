@@ -1,0 +1,10 @@
+Name,Project,Type,Status,Due,Priority,Notes
+Draft pattern spec,Textile,task,,2026-06-20,high,Define grain + repeat for the new print run.
+Order linen samples,Textile,task,done,2026-06-05,medium,Three weights from the Belgian supplier.
+Colour study,Textile,idea,,,,"Indigo over rust — see mood board."
+Loom maintenance log,Textile,note,,,,Tension drift on shaft 3.
+Renew domain,Website,task,,2026-06-12,high,Auto-renew failed; card expired.
+Rewrite about page,Website,task,in progress,2026-07-01,low,Tighten the bio to two paragraphs.
+Analytics alternatives,Website,reference,,,,Plausible vs Umami self-hosted.
+Tax filing Q2,Admin,task,,2026-07-15,high,Gather receipts from the studio folder.
+Backup vault,Admin,task,done,2026-06-01,medium,Weekly rsync to the NAS.
