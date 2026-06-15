@@ -86,7 +86,7 @@ The class constructor takes a typed `persistSettings: () => Promise<void>` callb
 Global settings UI.
 
 **`CardViewPlugin extends Plugin`**
-Entry point. Registers view for `csv`, registers `csv-add`, `csv-refresh`, and `csv-random` (random entry card with ↻ re-roll, `src/random-block.ts`) code block processors, plus two palette commands (`add-entry`, `cycle-view-mode` → `CardView.cycleMode`, modes from `availableModes` in `view/toolbar.ts`). `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
+Entry point. Registers view for `csv`, registers `csv-add`, `csv-refresh`, and `csv-random` (random entry card with ↻ re-roll, `src/random-block.ts`) code block processors, plus palette commands: `add-entry`, `cycle-view-mode` (→ `CardView.cycleMode`, modes from `availableModes` in `view/toolbar.ts`), and one `create-<id>` per entry in `FILE_TEMPLATES` (scaffold a new CSV with that view's canonical columns, pin its `defaultMode`, open it — `createTemplateFile`). `vault.on("rename")` / `vault.on("delete")` hooks migrate or drop `fileConfigs` keys so per-file config survives file moves (see `migrateFileConfigKey` in `src/utils.ts`).
 
 Key methods:
 - `renderAddEntryForm(source, el, ctx)` — renders the `csv-add` code block as a form. Parses `file:`, reads headers, auto-detects select fields (cols with ≤15 unique values), writes new entries directly to the file. For habit-shape files (file has a date col), pre-fills from existing row matching the date input → submit reads as "Update". Title flips to "Updating ‹date›" and submit button label flips to "Update" (vs "Add") when the date matches.
@@ -241,6 +241,8 @@ src/
 └── view/
     ├── table.ts library.ts kanban.ts toolbar.ts dashboard.ts mobile.ts
     ├── stats.ts             # bar-chart insights (pure DOM, no Chart.js) + hasStatsColumns/parseRating
+    ├── tasks.ts             # native CSV-backed Tasks/projects view (group-by-project)
+    ├── anki.ts              # 🎴 Anki toolbar button → AnkiConnect (127.0.0.1:8765) live push; desktop-only
     └── focus.ts             # one-entry-at-a-time reader (focusIndex/focusNavPending state on CardView)
 ```
 

@@ -20,6 +20,8 @@ no sync).
   sort choices persist per file too.
 - **Mobile dashboards** — generate a DataviewJS dashboard with an add-entry
   form for phone use (📱 Mobile).
+- **Anki sync** — push rows to Anki as flashcards in one click (🎴 Anki).
+  Great for quotes and dictionary files. See [Anki sync](#anki-sync) for setup.
 - **Multi-select for list columns** — category/genre/tags pickers toggle
   multiple values (✓ checkmarks, joined with `, `).
 - **`csv-random` code block** — embed a random entry (quote of the day, word
@@ -31,8 +33,9 @@ no sync).
   ```
   ```
 
-- **Palette commands** — "Add entry to current CSV" and "Cycle view mode",
-  both hotkey-able.
+- **Palette commands** — "Add entry to current CSV", "Cycle view mode", and
+  "Create tasks/travel/habit tracker file" (scaffold a new CSV preconfigured
+  for that view), all hotkey-able.
 - **Travel view** — an interactive world map + trip timeline + configurable
   residency/visa day-counters, for travel-log CSVs.
 
@@ -45,7 +48,7 @@ file's columns (the ⚙ Columns "Default view" picker offers the same set):
 |------|---------------|---------------|
 | **Travel** | `country` + `date_entered` + `date_left` + `source` columns | World choropleth, stats, per-country day totals, year timeline, editable trips |
 | **Dashboard** | a date column is detected | Habit tracker: daily toggles, progress chart, streaks, per-habit calendars |
-| **Tasks** | a `due`/`priority` column, or a `type` column with task/note/idea values | Project dashboard: rows grouped by `project` into a Tasks section (sorted done → priority → due, overdue flagged) and a Notes & Ideas section. Click-to-toggle done, click-to-edit priority, click a name for the entry overview, 📄/+ to open/create an optional backing page |
+| **Tasks** | a `due`/`priority` column, or a `type` column with task/note/idea values | Project dashboard: rows grouped by `project` into three sections — Tasks (sorted done → priority → due, overdue flagged), Notes, and Ideas. Add+ prefills Type (Task/Note/Idea), Priority (Low/Medium/High) and a date picker for Due. Click-to-toggle done, click-to-edit priority, click a name for the entry overview, 📄/+ to open/create an optional backing page |
 | **Cards** (library) | any groupable column exists (category preferred, else auto-picked) | Cards grouped by genre/category, with status dots, ratings, tags, and a sort selector (status / title / rating / year) |
 | **Kanban** | any groupable column exists (category preferred, else auto-picked) | Columns by genre (or any column via the per-file "Group by" selector — year columns bucket into decades), grouped by status, with inline notes |
 | **Table** | always | Editable spreadsheet view with resizable columns and click-to-sort headers |
@@ -96,6 +99,32 @@ gauges (e.g. Schengen 90/180). Add and edit them in
 A rule computes: *days in the listed countries, within the window, minus
 exempt-visa rows, vs the threshold.* Counts confirmed trips only.
 **These are indicators, not legal or tax advice.**
+
+## Anki sync
+
+The **🎴 Anki** toolbar button (also in the ⋯ menu) pushes the current CSV's
+rows into [Anki](https://apps.ankiweb.net/) as flashcards — handy for quotes,
+dictionary, and vocabulary files.
+
+Each row becomes one **Basic** note: the front is the file's title/primary
+column (or whichever column you pick), and every other non-empty column is
+joined onto the back. Cards land in a deck named after the file (`quotes.csv`
+→ deck "Quotes"), created automatically. Re-running the sync only adds rows
+that aren't already in the deck, so it's safe to click repeatedly.
+
+Pick which column is the card front per file in **⚙ Columns → Anki card
+front** (defaults to the title/primary field).
+
+**Setup (one-time):**
+
+1. Install the [AnkiConnect](https://ankiweb.net/shared/info/2055492159)
+   add-on in Anki: *Tools → Add-ons → Get Add-ons…* and paste code
+   `2055492159`, then restart Anki.
+2. Keep the Anki desktop app **running** when you sync.
+
+Sync is desktop-only — it talks to AnkiConnect at `http://127.0.0.1:8765`, so
+it won't work from the Obsidian mobile app. If Anki isn't running you'll get a
+notice telling you so.
 
 ## Installation
 
