@@ -55,6 +55,47 @@ file's columns (the ⚙ Columns "Default view" picker offers the same set):
 | **Focus** | any non-empty file | One entry at a time, big typography — built for quote and dictionary files. Prev / random / next, ←/→ keys |
 | **Stats** | a category, status, rating, or author column exists | Bar-chart insights: status breakdown, categories, rating histogram + average, entries per year, top authors. Status/category bars click through to the filtered library |
 
+## Inline view (`csv-view` block)
+
+Embed an editable table / cards / kanban view of a CSV **inside any note** — like
+a `.base` block or a Notion linked-database view in a page. Point a fenced
+`csv-view` block at a CSV file:
+
+````
+```csv-view
+file: ../movies.csv      ← sibling name, ../walked, or vault-relative path (like csv-add)
+mode: kanban             ← table | cards | kanban   (default: table)
+height: 480              ← optional max content height in px
+collapse: Removed, Done  ← optional: group values collapsed by default (Cards)
+```
+````
+
+- **Reuses the real renderers** — `Table` / `Cards` / `Kanban` look and behave
+  exactly like the full-page view, with a compact toolbar (mode switch, search,
+  + Add). The title links to the source `.csv` in its own tab.
+- **Fully editable.** Inline cell edits, status chips, the entry expander, + Add,
+  and right-click → Delete (with Undo) all write back to the source CSV via the
+  same path as the full view. Other open views of the same file (a `.csv` tab,
+  another block) re-sync off the vault `modify` event.
+- **`collapse:`** lists group values that start collapsed in Cards view; manual
+  collapse/expand is also remembered per file (shared with the full-page view).
+- Mode/search are per-block; group-by and sort persist to the same per-file
+  config as the full-page view (one source of truth per file).
+
+### Images in Cards / Kanban
+
+If a column is named **Image / Cover / Poster / Thumbnail / Photo / Picture / Img**
+(or you set an image column in per-file config), its value is rendered as a
+thumbnail on each card. Accepts a vault path, `![[wikilink]]`, `![](path)`, or a
+URL. Lazy-loaded; broken images quietly drop out. Works inline and full-page.
+
+### Adding rows
+
+The **+ Add** form renders the right control per column: a dropdown for
+select/option columns, a textarea for notes, a date picker for date columns, and
+a **toggle** for habit-style 0/1 columns (so logging a day is a tap, not typing
+each value).
+
 ## Travel view
 
 Point the plugin at a flat travel CSV with these columns:
